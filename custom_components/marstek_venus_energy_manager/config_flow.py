@@ -1979,7 +1979,7 @@ class OptionsFlowHandler(OptionsFlow):
                 EntitySelector(EntitySelectorConfig(domain="sensor")),
             vol.Optional(
                 CONF_MAX_PRICE_THRESHOLD,
-                default=str(default_max_price) if default_max_price is not None else vol.UNDEFINED
+                description={"suggested_value": str(default_max_price)} if default_max_price is not None else {}
             ):
                 TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Required(CONF_DP_PRICE_DISCHARGE_CONTROL, default=default_dp_discharge_control): bool,
@@ -2063,7 +2063,7 @@ class OptionsFlowHandler(OptionsFlow):
                 EntitySelector(EntitySelectorConfig(domain="sensor")),
             vol.Optional(
                 CONF_MAX_PRICE_THRESHOLD,
-                default=str(default_max_price) if default_max_price is not None else vol.UNDEFINED
+                description={"suggested_value": str(default_max_price)} if default_max_price is not None else {}
             ):
                 TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Optional(
