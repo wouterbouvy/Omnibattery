@@ -13,7 +13,6 @@ from .const import (
     DOMAIN,
     HOURLY_BALANCE_STORAGE_KEY,
     HOURLY_BALANCE_STORAGE_VERSION,
-    HOURLY_BALANCE_HISTORY_MAX,
     HOURLY_BALANCE_FORCE_RECALC_REMAINING_MIN,
     HOURLY_BALANCE_MIN_REMAINING_MIN,
     CONF_HOURLY_BALANCE_TARGET_NET_WH,
@@ -59,10 +58,7 @@ class HourlyBalanceManager:
         self._last_sample_monotonic: float | None = None
         self._last_offset_w: float = 0.0
 
-        # History and save throttle
-        self._history: list[dict] = []
-        
-        # Internal state
+        # Internal state and save throttle
         self._last_theoretical_offset_w: float = 0.0
         self._last_block_reason: str | None = None
         self._save_counter: int = 0
@@ -85,8 +81,6 @@ class HourlyBalanceManager:
         """Load persisted state from store."""
         stored = await self._store.async_load()
         if stored:
-            self._history = stored.get("history", [])
-
             # Restore current-hour accumulators only if still the same hour
             now_local = dt_util.now()
             saved_hour_iso = stored.get("hour_iso")
@@ -111,10 +105,7 @@ class HourlyBalanceManager:
                 except ValueError:
                     pass
 
-        _LOGGER.info(
-            "HourlyBalance: setup complete, %d history entries loaded",
-            len(self._history),
-        )
+        _LOGGER.info("HourlyBalance: setup complete")
         await self._detect_external_sensor()
 
         # If we restored mid-hour data and the external sensor uses snapshots, prime the
@@ -154,6 +145,17 @@ class HourlyBalanceManager:
     def _push_sensors(self) -> None:
         for sensor in self._sensors:
             sensor.async_write_ha_state()
+
+    def clear_offset(self, reset_sampling: bool = True) -> None:
+        """Clear the controller offset and the manager's visible offset state."""
+        self._controller.remove_setpoint_offset("hourly_balance")
+        self._last_offset_w = 0.0
+        self._last_theoretical_offset_w = 0.0
+        self._last_block_reason = None
+        if reset_sampling:
+            self._last_sample_monotonic = None
+            self._last_grid_w = None
+        self._push_sensors()
 
     # ------------------------------------------------------------------
     # External sensor detection
@@ -257,28 +259,19 @@ class HourlyBalanceManager:
         control loop."""
         # Feature disabled via runtime switch — clear offset and idle
         if not self._controller.hourly_balance_enabled:
-            self._controller.remove_setpoint_offset("hourly_balance")
-            self._last_sample_monotonic = None
-            self._last_grid_w = None
-            self._push_sensors()
+            self.clear_offset()
             return
 
         # Edge case: manual mode — clear offset and do nothing
         if self._controller.manual_mode_enabled:
-            self._controller.remove_setpoint_offset("hourly_balance")
-            self._last_sample_monotonic = None
-            self._last_grid_w = None
-            self._push_sensors()
+            self.clear_offset()
             return
 
         in_slot = self._is_in_active_slot()
 
         if not in_slot:
-            self._controller.remove_setpoint_offset("hourly_balance")
             # Reset integration so we restart clean when slot opens again
-            self._last_sample_monotonic = None
-            self._last_grid_w = None
-            self._push_sensors()
+            self.clear_offset()
             return
 
         # Lazy detection for sensors not yet in the state machine at startup
@@ -332,19 +325,12 @@ class HourlyBalanceManager:
             if self._current_hour is not None:
                 # Close previous hour
                 net_wh = self._imp_wh - self._exp_wh
-                entry = {
-                    "hour_iso": self._hour_started_local.isoformat() if self._hour_started_local else None,
-                    "imp_wh": round(self._imp_wh, 1),
-                    "exp_wh": round(self._exp_wh, 1),
-                    "net_wh": round(net_wh, 1),
-                    "target_net_wh": self._target_net_wh(),
-                }
-                self._history.append(entry)
-                if len(self._history) > HOURLY_BALANCE_HISTORY_MAX:
-                    self._history = self._history[-HOURLY_BALANCE_HISTORY_MAX:]
                 _LOGGER.info(
                     "HourlyBalance: closed hour %s — imp=%.0fWh exp=%.0fWh net=%.0fWh",
-                    entry["hour_iso"], self._imp_wh, self._exp_wh, net_wh,
+                    self._hour_started_local.isoformat() if self._hour_started_local else None,
+                    self._imp_wh,
+                    self._exp_wh,
+                    net_wh,
                 )
 
             # Start new hour
@@ -433,14 +419,9 @@ class HourlyBalanceManager:
             if abs(offset_w - self._last_offset_w) < hysteresis_w:
                 offset_w = self._last_offset_w
 
-        # Prevent forced discharge when importing more than target. When deficit_wh < 0,
-        # it means the system is importing neto from the grid, indicating insufficient solar.
-        # In this case, forcing discharge (offset_w < 0) would drain batteries while the grid
-        # already supplies power — violating the principle that grid should cover demand when
-        # solar is insufficient. Clamping offset_w to 0 allows grid supply without discharge.
-        if deficit_wh < 0:
-            offset_w = max(offset_w, 0.0)
-
+        # Negative offset is intentional: when the hour has net import above
+        # target, the controller must discharge/export during the remaining
+        # minutes to bring the hourly net balance back toward target.
         # All block reasons (solar_charge_delay, hysteresis, max_soc) only fire
         # when offset > 0 (charging direction). When blocked, keep the positive
         # offset active: charging is still rejected at hardware level, but the
@@ -473,7 +454,6 @@ class HourlyBalanceManager:
 
     async def _save(self) -> None:
         data = {
-            "history": self._history,
             "hour_iso": self._hour_started_local.isoformat() if self._hour_started_local else None,
             "imp_wh": self._imp_wh,
             "exp_wh": self._exp_wh,
@@ -572,7 +552,6 @@ class HourlyBalanceManager:
             "in_active_slot": self._is_in_active_slot(),
             "hour_iso": self._hour_started_local.isoformat() if self._hour_started_local else None,
             "charge_block_reason": self._last_block_reason,
-            "history": self._history[-10:],
             "source": self._ext_sensor if self._ext_sensor else "trapezoidal",
             "source_mode": self._ext_mode if self._ext_mode else "trapezoidal",
         }
