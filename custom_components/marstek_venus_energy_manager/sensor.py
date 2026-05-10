@@ -850,13 +850,12 @@ class IntegrationStatusSensor(SensorEntity):
 
     def _ev_charger_state_key(self) -> str | None:
         """Return the integration-status key for no-telemetry EV charger handling."""
-        from homeassistant.util import dt as dt_util
-
         c = self._controller
-        now = dt_util.utcnow()
-        if any(pause_until and now < pause_until for pause_until in c._ev_pause_until.values()):
+        charge_blockers = c.get_charge_blockers()
+        discharge_blockers = c.get_discharge_blockers()
+        if "ev_pause" in charge_blockers or "ev_pause" in discharge_blockers:
             return "ev_charger_pause"
-        if any(c._ev_charging_states.values()):
+        if "ev_charging" in discharge_blockers:
             return "ev_discharge_blocked"
         return None
 
@@ -922,7 +921,8 @@ class IntegrationStatusSensor(SensorEntity):
         if capacity_state:
             return capacity_state
 
-        if c._price_based_discharge_blocked:
+        discharge_blockers = c.get_discharge_blockers()
+        if "price_discharge" in discharge_blockers:
             return "price_discharge_blocked"
 
         hourly_state = self._hourly_balance_state_key()
@@ -933,7 +933,7 @@ class IntegrationStatusSensor(SensorEntity):
             return "backup_mode"
 
         # Priority 6: Outside all configured discharge windows
-        if self._is_outside_discharge_window():
+        if "time_slot_discharge" in discharge_blockers:
             return "no_discharge_slot"
 
         # Priority 7: PD control state from last command
@@ -958,7 +958,21 @@ class IntegrationStatusSensor(SensorEntity):
             "manual_mode_enabled": c.manual_mode_enabled,
             "grid_charging_active": c.grid_charging_active,
             "price_based_discharge_blocked": c._price_based_discharge_blocked,
+            "charge_blocked": c.is_charge_blocked(),
+            "discharge_blocked": c.is_discharge_blocked(),
         }
+        charge_blockers = c.get_charge_blockers()
+        if charge_blockers:
+            attrs["charge_blockers"] = charge_blockers
+        discharge_blockers = c.get_discharge_blockers()
+        if discharge_blockers:
+            attrs["discharge_blockers"] = discharge_blockers
+        battery_charge_blockers = c.get_battery_charge_blockers()
+        if battery_charge_blockers:
+            attrs["battery_charge_blockers"] = battery_charge_blockers
+        battery_discharge_blockers = c.get_battery_discharge_blockers()
+        if battery_discharge_blockers:
+            attrs["battery_discharge_blockers"] = battery_discharge_blockers
         offsets = dict(c._setpoint_offsets)
         if offsets:
             attrs["setpoint_offsets"] = offsets

@@ -727,6 +727,12 @@
       "rs485_control_mode": {
         "name": "RS485-besturingsmodus"
       },
+      "battery_allow_charge": {
+        "name": "Laden Toestaan"
+      },
+      "battery_allow_discharge": {
+        "name": "Ontladen Toestaan"
+      },
       "automation_charging_active": {
         "name": "Laden op Externe Prijs"
       },

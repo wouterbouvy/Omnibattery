@@ -727,6 +727,12 @@
       "rs485_control_mode": {
         "name": "Mode de Contrôle RS485"
       },
+      "battery_allow_charge": {
+        "name": "Autoriser la Charge"
+      },
+      "battery_allow_discharge": {
+        "name": "Autoriser la Decharge"
+      },
       "automation_charging_active": {
         "name": "Charge par Prix Externe"
       },

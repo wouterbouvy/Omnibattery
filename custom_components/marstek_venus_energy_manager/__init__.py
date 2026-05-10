@@ -248,6 +248,10 @@ class ChargeDischargeController:
 
         # Price-based discharge control flag (set each cycle by pricing handlers, consumed by PD section)
         self._price_based_discharge_blocked: bool = False
+        self._global_charge_blockers: dict[str, dict] = {}
+        self._global_discharge_blockers: dict[str, dict] = {}
+        self._battery_charge_blockers: dict[MarstekVenusDataUpdateCoordinator, dict[str, dict]] = {}
+        self._battery_discharge_blockers: dict[MarstekVenusDataUpdateCoordinator, dict[str, dict]] = {}
         self._dynamic_pricing_schedule: Optional[DynamicPricingSchedule] = None
         self._dynamic_pricing_evaluated_date = None
         self._current_price_slot_active = False
@@ -454,90 +458,221 @@ class ChargeDischargeController:
         _LOGGER.info("PD parameters hot-reloaded: Kp=%.2f, Kd=%.2f, deadband=%d, max_change=%d, hysteresis=%d, min_charge=%d, min_discharge=%d",
                      self.kp, self.kd, self.deadband, self.max_power_change_per_cycle, self.direction_hysteresis, self.min_charge_power, self.min_discharge_power)
 
-    def _is_operation_allowed(self, is_charging: bool) -> bool:
-        """Check if charging or discharging is allowed based on time slots.
+    def _make_block_record(self, registry: dict, source: str, reason: str, details: dict | None) -> dict:
+        """Build a blocker record, preserving the original activation time."""
+        existing = registry.get(source)
+        return {
+            "reason": reason,
+            "details": details or {},
+            "since": existing.get("since") if existing else dt_util.utcnow(),
+        }
 
-        Logic:
-        - If no time slots configured: Always allowed
-        - If time slots configured for DISCHARGE only:
-          - Discharge only allowed DURING slots
-          - Charging always allowed (not restricted)
-        - If time slots configured WITH apply_to_charge=True:
-          - Those specific slots also restrict charging
-          - Charging only allowed during slots marked with apply_to_charge
-        - Charge delay: if enabled, charging is blocked until solar conditions
-          indicate it's time to charge (unified delay for daily and weekly)
-        """
+    def _serialize_blockers(self, registry: dict[str, dict]) -> dict:
+        """Return blockers with JSON/state-attribute friendly values."""
+        return {
+            source: {
+                "reason": record.get("reason"),
+                "details": dict(record.get("details") or {}),
+                "since": record["since"].isoformat() if record.get("since") else None,
+            }
+            for source, record in registry.items()
+        }
+
+    def _block_registry(self, is_charging: bool, coordinator=None) -> dict:
+        """Return the mutable blocker registry for a direction and scope."""
+        if coordinator is None:
+            return self._global_charge_blockers if is_charging else self._global_discharge_blockers
+        registries = self._battery_charge_blockers if is_charging else self._battery_discharge_blockers
+        return registries.setdefault(coordinator, {})
+
+    def _set_operation_block(self, is_charging: bool, source: str, reason: str, details: dict | None = None, coordinator=None) -> None:
+        registry = self._block_registry(is_charging, coordinator)
+        old = registry.get(source)
+        registry[source] = self._make_block_record(registry, source, reason, details)
+        if old is None:
+            scope = "global" if coordinator is None else coordinator.name
+            _LOGGER.debug("%s block added [%s]: %s", "Charge" if is_charging else "Discharge", scope, source)
+
+    def _remove_operation_block(self, is_charging: bool, source: str, coordinator=None) -> None:
+        if coordinator is None:
+            registry = self._global_charge_blockers if is_charging else self._global_discharge_blockers
+        else:
+            registries = self._battery_charge_blockers if is_charging else self._battery_discharge_blockers
+            registry = registries.get(coordinator)
+            if registry is None:
+                return
+        removed = registry.pop(source, None)
+        if removed is not None:
+            scope = "global" if coordinator is None else coordinator.name
+            _LOGGER.debug("%s block removed [%s]: %s", "Charge" if is_charging else "Discharge", scope, source)
+        if coordinator is not None and not registry:
+            registries.pop(coordinator, None)
+
+    def set_charge_block(self, source: str, reason: str, details: dict | None = None, coordinator=None) -> None:
+        """Register or update a charge blocker."""
+        self._set_operation_block(True, source, reason, details, coordinator)
+
+    def remove_charge_block(self, source: str, coordinator=None) -> None:
+        """Remove a charge blocker."""
+        self._remove_operation_block(True, source, coordinator)
+
+    def set_discharge_block(self, source: str, reason: str, details: dict | None = None, coordinator=None) -> None:
+        """Register or update a discharge blocker."""
+        self._set_operation_block(False, source, reason, details, coordinator)
+
+    def remove_discharge_block(self, source: str, coordinator=None) -> None:
+        """Remove a discharge blocker."""
+        self._remove_operation_block(False, source, coordinator)
+
+    def is_charge_blocked(self, coordinator=None) -> bool:
+        """Return True if charge is blocked globally or for the given battery."""
+        if self._global_charge_blockers:
+            return True
+        return bool(coordinator is not None and self._battery_charge_blockers.get(coordinator))
+
+    def is_discharge_blocked(self, coordinator=None) -> bool:
+        """Return True if discharge is blocked globally or for the given battery."""
+        if self._global_discharge_blockers:
+            return True
+        return bool(coordinator is not None and self._battery_discharge_blockers.get(coordinator))
+
+    def get_charge_blockers(self, coordinator=None) -> dict:
+        """Return charge blockers for the requested scope."""
+        if coordinator is None:
+            return self._serialize_blockers(self._global_charge_blockers)
+        merged = dict(self._global_charge_blockers)
+        merged.update(self._battery_charge_blockers.get(coordinator, {}))
+        return self._serialize_blockers(merged)
+
+    def get_discharge_blockers(self, coordinator=None) -> dict:
+        """Return discharge blockers for the requested scope."""
+        if coordinator is None:
+            return self._serialize_blockers(self._global_discharge_blockers)
+        merged = dict(self._global_discharge_blockers)
+        merged.update(self._battery_discharge_blockers.get(coordinator, {}))
+        return self._serialize_blockers(merged)
+
+    def get_battery_charge_blockers(self) -> dict:
+        """Return per-battery charge blockers for diagnostics."""
+        return {
+            coordinator.name: self._serialize_blockers(blockers)
+            for coordinator, blockers in self._battery_charge_blockers.items()
+            if blockers
+        }
+
+    def get_battery_discharge_blockers(self) -> dict:
+        """Return per-battery discharge blockers for diagnostics."""
+        return {
+            coordinator.name: self._serialize_blockers(blockers)
+            for coordinator, blockers in self._battery_discharge_blockers.items()
+            if blockers
+        }
+
+    def _is_time_slot_allowed(self, is_charging: bool) -> bool:
+        """Return True if the current time-slot configuration allows this direction."""
         from datetime import datetime, time as dt_time
 
-        # Unified charge delay: block charging if delay is active
-        if is_charging and self._is_charge_delayed():
-            return False
-
-        # Read time slots from config entry (allows live updates from options flow)
         all_time_slots = self.config_entry.data.get("no_discharge_time_slots", [])
-        # Filter out disabled slots - treat as if they don't exist
         time_slots = [s for s in all_time_slots if s.get("enabled", True)]
 
         if not time_slots:
-            _LOGGER.debug("No active time slots configured - operation always allowed")
             return True
-        
+
         now = datetime.now()
         current_time = now.time()
         current_day = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][now.weekday()]
-        
-        operation_type = "charging" if is_charging else "discharging"
-        
-        # Special case: if charging and NO slot has apply_to_charge=True, charging is always allowed
+
         if is_charging:
             has_charge_restriction = any(slot.get("apply_to_charge", False) for slot in time_slots)
             if not has_charge_restriction:
-                _LOGGER.debug("Charging always allowed - no slots restrict charging")
                 return True
-        
-        _LOGGER.debug("Checking time slots for %s: current_time=%s, current_day=%s, slots=%s", 
-                     operation_type, current_time.strftime("%H:%M:%S"), current_day, time_slots)
-        
-        for i, slot in enumerate(time_slots):
-            # Check if this slot applies to the current operation (charge/discharge)
-            apply_to_charge = slot.get("apply_to_charge", False)
 
-            # Skip slot if it's charging and this slot doesn't restrict charging
-            if is_charging and not apply_to_charge:
-                _LOGGER.debug("Slot %d: Skipping for charging (apply_to_charge=False)", i+1)
+        for slot in time_slots:
+            if is_charging and not slot.get("apply_to_charge", False):
                 continue
-            # For discharge, all slots apply
-            
-            _LOGGER.debug("Checking slot %d: start=%s, end=%s, days=%s, apply_to_charge=%s", 
-                         i+1, slot.get("start_time"), slot.get("end_time"), slot.get("days"), apply_to_charge)
-            
-            # Check if current day is in the slot's days
-            if current_day not in slot["days"]:
-                _LOGGER.debug("Slot %d: Current day %s not in slot days %s", i+1, current_day, slot["days"])
+            if current_day not in slot.get("days", []):
                 continue
-            
-            # Parse start and end times from the slot
             try:
                 start_time = dt_time.fromisoformat(slot["start_time"])
                 end_time = dt_time.fromisoformat(slot["end_time"])
             except Exception as e:
-                _LOGGER.error("Error parsing time slot %d: %s", i+1, e)
+                _LOGGER.error("Error parsing time slot: %s", e)
                 continue
-            
-            _LOGGER.debug("Slot %d: Checking if %s is between %s and %s", 
-                         i+1, current_time.strftime("%H:%M:%S"), 
-                         start_time.strftime("%H:%M:%S"), end_time.strftime("%H:%M:%S"))
-            
-            # Check if current time is within the slot
             if start_time <= current_time <= end_time:
-                _LOGGER.debug("MATCH! Slot %d: %s IS ALLOWED - time %s within %s - %s (day: %s)",
-                            i+1, operation_type.upper(), current_time.strftime("%H:%M:%S"),
-                            start_time.strftime("%H:%M:%S"), end_time.strftime("%H:%M:%S"), current_day)
                 return True
 
-        _LOGGER.debug("No matching time slot found - %s NOT ALLOWED (slots configured but none match)", operation_type.upper())
         return False
+
+    def _refresh_time_slot_blocks(self) -> None:
+        """Update charge/discharge blockers from the configured operation slots."""
+        if self._is_time_slot_allowed(True):
+            self.remove_charge_block("time_slot_charge")
+        else:
+            self.set_charge_block("time_slot_charge", "time_slot", {"direction": "charge"})
+
+        if self._is_time_slot_allowed(False):
+            self.remove_discharge_block("time_slot_discharge")
+        else:
+            self.set_discharge_block("time_slot_discharge", "time_slot", {"direction": "discharge"})
+
+    def _refresh_user_battery_blocks(self) -> None:
+        """Update per-battery blockers from the software allow switches."""
+        for coordinator in self.coordinators:
+            if getattr(coordinator, "allow_charge", True):
+                self.remove_charge_block("user_battery_charge_disabled", coordinator=coordinator)
+            else:
+                self.set_charge_block(
+                    "user_battery_charge_disabled",
+                    "user_disabled",
+                    {"battery": coordinator.name},
+                    coordinator=coordinator,
+                )
+
+            if getattr(coordinator, "allow_discharge", True):
+                self.remove_discharge_block("user_battery_discharge_disabled", coordinator=coordinator)
+            else:
+                self.set_discharge_block(
+                    "user_battery_discharge_disabled",
+                    "user_disabled",
+                    {"battery": coordinator.name},
+                    coordinator=coordinator,
+                )
+
+    def _refresh_ev_blocks(self) -> None:
+        """Update EV charger blockers from no-telemetry charger state."""
+        ev_pause_active, ev_charging_active = self._check_ev_charger_state()
+        if ev_pause_active:
+            self.set_charge_block("ev_pause", "ev_pause", {"duration": "5_min"})
+            self.set_discharge_block("ev_pause", "ev_pause", {"duration": "5_min"})
+        else:
+            self.remove_charge_block("ev_pause")
+            self.remove_discharge_block("ev_pause")
+
+        if ev_charging_active:
+            self.set_discharge_block("ev_charging", "ev_charging")
+        else:
+            self.remove_discharge_block("ev_charging")
+
+    def _refresh_operation_blockers(self) -> None:
+        """Refresh all runtime operation blockers for the current control cycle."""
+        if self.charge_delay_enabled and self._is_charge_delayed():
+            self.set_charge_block(
+                "charge_delay",
+                "charge_delay",
+                {"state": self._charge_delay_status.get("state")},
+            )
+        else:
+            self.remove_charge_block("charge_delay")
+
+        self._refresh_time_slot_blocks()
+        self._apply_price_discharge_block()
+        self._refresh_ev_blocks()
+        self._refresh_user_battery_blocks()
+        self._price_based_discharge_blocked = "price_discharge" in self._global_discharge_blockers
+
+    def _is_operation_allowed(self, is_charging: bool) -> bool:
+        """Return True if the refreshed blocker registry allows this operation."""
+        return not (self.is_charge_blocked() if is_charging else self.is_discharge_blocked())
 
     def _get_active_slot(self) -> dict | None:
         """Get the currently active time slot, or None if no slot is active.
@@ -572,7 +707,7 @@ class ChargeDischargeController:
 
         return None
 
-    def _get_available_batteries(self, is_charging: bool) -> list:
+    def _get_available_batteries(self, is_charging: bool, include_operation_blocks: bool = True) -> list:
         """Get list of available batteries for the current operation.
         
         For charging with hysteresis:
@@ -602,6 +737,22 @@ class ChargeDischargeController:
             # Skip batteries with backup function active (they manage themselves autonomously)
             if self._is_backup_function_active(coordinator):
                 _LOGGER.debug("%s: Skipping - backup function is active", coordinator.name)
+                continue
+
+            if include_operation_blocks and is_charging and self.is_charge_blocked(coordinator):
+                _LOGGER.debug(
+                    "%s: Skipping charge - blocked by %s",
+                    coordinator.name,
+                    ", ".join(self.get_charge_blockers(coordinator).keys()),
+                )
+                continue
+
+            if include_operation_blocks and not is_charging and self.is_discharge_blocked(coordinator):
+                _LOGGER.debug(
+                    "%s: Skipping discharge - blocked by %s",
+                    coordinator.name,
+                    ", ".join(self.get_discharge_blockers(coordinator).keys()),
+                )
                 continue
 
             current_soc = coordinator.data.get("battery_soc", 0)
@@ -1792,6 +1943,19 @@ class ChargeDischargeController:
         Target: Keep consumption/export sensor at max_contracted_power.
         If home consumption increases, reduce battery charging to avoid exceeding ICP.
         """
+        if self.is_charge_blocked():
+            _LOGGER.debug(
+                "Predictive charging paused by charge blockers: %s",
+                ", ".join(self.get_charge_blockers().keys()),
+            )
+            self.grid_charging_active = False
+            self._grid_charging_initialized = False
+            self.previous_power = 0
+            self.previous_error = 0
+            for coordinator in self.coordinators:
+                await self._set_battery_power(coordinator, 0, 0)
+            return
+
         consumption_state = self.hass.states.get(self.consumption_sensor)
         sensor_raw = self._apply_meter_transform(consumption_state)
         if sensor_raw is None:
@@ -2173,6 +2337,22 @@ class ChargeDischargeController:
                 coordinator.name
             )
             return False
+
+        if charge_power > 0 and self.is_charge_blocked(coordinator):
+            _LOGGER.debug(
+                "[%s] Charge command suppressed by blockers: %s",
+                coordinator.name,
+                ", ".join(self.get_charge_blockers(coordinator).keys()),
+            )
+            charge_power = 0
+
+        if discharge_power > 0 and self.is_discharge_blocked(coordinator):
+            _LOGGER.debug(
+                "[%s] Discharge command suppressed by blockers: %s",
+                coordinator.name,
+                ", ".join(self.get_discharge_blockers(coordinator).keys()),
+            )
+            discharge_power = 0
 
         # Hold discharge while balance monitor waits for OCV stabilisation
         if coordinator.balance_hold and discharge_power > 0:
@@ -3406,7 +3586,7 @@ class ChargeDischargeController:
                     # Fall through to discharge control below (do not return early)
 
                 # Respect charge delay: if configured and still active, hold until it unlocks
-                elif self._is_charge_delayed():
+                elif self.is_charge_blocked():
                     _LOGGER.info(
                         "Dynamic pricing: inside cheap slot window but charge delay is active — holding"
                     )
@@ -3711,11 +3891,14 @@ class ChargeDischargeController:
 
         if mode == PREDICTIVE_MODE_DYNAMIC_PRICING:
             if not self.dp_price_discharge_control or not self.price_sensor:
+                self.remove_discharge_block("price_discharge")
                 return
         elif mode == PREDICTIVE_MODE_REALTIME_PRICE:
             if not self.rt_price_discharge_control or not self.price_sensor:
+                self.remove_discharge_block("price_discharge")
                 return
         else:
+            self.remove_discharge_block("price_discharge")
             return
 
         # Reactive per-cycle threshold check, identical for DP and RT.
@@ -3735,22 +3918,59 @@ class ChargeDischargeController:
             threshold = self.max_price_threshold
 
         if threshold is None:
+            self.remove_discharge_block("price_discharge")
             return
 
         price_state = self.hass.states.get(self.price_sensor)
         if price_state is None:
+            self.remove_discharge_block("price_discharge")
             return
         try:
             current_price = float(price_state.state)
         except (ValueError, TypeError):
+            self.remove_discharge_block("price_discharge")
             return
 
-        self._price_based_discharge_blocked = not (current_price > threshold)
+        if current_price > threshold:
+            self.remove_discharge_block("price_discharge")
+            self._price_based_discharge_blocked = False
+            return
+
+        self.set_discharge_block(
+            "price_discharge",
+            "price",
+            {"current_price": current_price, "threshold": threshold, "mode": mode},
+        )
+        self._price_based_discharge_blocked = True
         if self._price_based_discharge_blocked:
             _LOGGER.debug(
                 "Price-based discharge BLOCKED (current=%.4f <= threshold=%.4f, mode=%s)",
                 current_price, threshold, mode,
             )
+
+    async def _stop_all_batteries_for_block(self, direction: str) -> None:
+        """Stop all battery commands after a global operation block becomes active."""
+        _LOGGER.debug("ChargeDischargeController: stopping all batteries due to %s block", direction)
+        for coordinator in self.coordinators:
+            await self._set_battery_power(coordinator, 0, 0)
+        self.previous_power = 0
+        self._active_discharge_batteries = []
+        self._active_charge_batteries = []
+
+    async def _stop_blocked_active_batteries(self) -> bool:
+        """Stop batteries that were active before a per-battery block appeared."""
+        stopped = False
+        for coordinator in list(self._active_charge_batteries):
+            if self.is_charge_blocked(coordinator):
+                await self._set_battery_power(coordinator, 0, 0)
+                self._active_charge_batteries.remove(coordinator)
+                stopped = True
+        for coordinator in list(self._active_discharge_batteries):
+            if self.is_discharge_blocked(coordinator):
+                await self._set_battery_power(coordinator, 0, 0)
+                self._active_discharge_batteries.remove(coordinator)
+                stopped = True
+        return stopped
 
     async def async_update_charge_discharge(self, now=None):
         """Update the charge/discharge power of the batteries."""
@@ -3820,13 +4040,10 @@ class ChargeDischargeController:
             # Proactively evaluate delay to keep ChargeDelaySensor populated
             self._is_charge_delayed()
 
-        # Reset price-based discharge block flag at start of each cycle, then
-        # recompute it immediately so it is set BEFORE the mode handler runs.
-        # The mode handler may return early (override active, DP cheap-slot,
-        # max_soc transition); doing the computation here guarantees the flag
-        # is always available for the enforcement points downstream.
-        self._price_based_discharge_blocked = False
-        self._apply_price_discharge_block()
+        # Refresh all operation blockers before mode dispatch and PD early returns.
+        # This makes charge/discharge permission a shared registry instead of a
+        # collection of independent flags and one-off checks.
+        self._refresh_operation_blockers()
 
         # === Predictive Grid Charging Logic (mode dispatch) ===
         if self.predictive_charging_enabled:
@@ -3848,24 +4065,26 @@ class ChargeDischargeController:
                 if self.grid_charging_active:
                     return
 
-        # === Price-based discharge block: enforce BEFORE deadband / stale early-returns ===
-        # The flag is set centrally above by _apply_price_discharge_block, so it is
-        # already correct here regardless of whether the mode handler returned early.
-        # Without this guard the deadband and stale-sensor paths would return early
-        # without stopping a running discharge, leaving the battery draining until
-        # grid error grows large enough to exit the deadband.
-        if self._price_based_discharge_blocked and self.previous_power < 0:
+        # === Operation blockers: enforce BEFORE deadband / stale early-returns ===
+        # Without this guard the deadband and stale-sensor paths could keep a
+        # command alive after a feature or user switch blocked that direction.
+        if self.previous_power > 0 and self.is_charge_blocked():
             _LOGGER.debug(
-                "ChargeDischargeController: Price-based discharge block active — "
-                "stopping discharge (was %.0fW), holding at 0W",
+                "ChargeDischargeController: Charge block active - stopping charge (was %.0fW)",
                 abs(self.previous_power),
             )
-            for coordinator in self.coordinators:
-                await self._set_battery_power(coordinator, 0, 0)
-            self.previous_power = 0
-            self._active_discharge_batteries = []
-            self._active_charge_batteries = []
+            await self._stop_all_batteries_for_block("charge")
             return
+
+        if self.previous_power < 0 and self.is_discharge_blocked():
+            _LOGGER.debug(
+                "ChargeDischargeController: Discharge block active - stopping discharge (was %.0fW)",
+                abs(self.previous_power),
+            )
+            await self._stop_all_batteries_for_block("discharge")
+            return
+
+        blocked_active_changed = await self._stop_blocked_active_batteries()
 
         # === Continue with normal PD control ===
         consumption_state = self.hass.states.get(self.consumption_sensor)
@@ -3892,7 +4111,11 @@ class ChargeDischargeController:
                 self.previous_power < 0
                 and self._is_capacity_protection_soc_limited()
             )
-            if self._stale_cycles <= self._max_stale_cycles and not capacity_protection_must_recheck:
+            if (
+                self._stale_cycles <= self._max_stale_cycles
+                and not capacity_protection_must_recheck
+                and not blocked_active_changed
+            ):
                 _LOGGER.debug(
                     "ChargeDischargeController: Sensor stale (cycle %d/%d), maintaining last command %.1fW",
                     self._stale_cycles, self._max_stale_cycles, self.previous_power
@@ -3954,7 +4177,7 @@ class ChargeDischargeController:
 
         # CRITICAL: Check deadband on FILTERED sensor (actual grid balance) BEFORE compensation
         # Deadband is centered around the active target grid power
-        if abs(sensor_filtered - active_target) < self.deadband:
+        if not blocked_active_changed and abs(sensor_filtered - active_target) < self.deadband:
             _LOGGER.debug("ChargeDischargeController: Filtered sensor %.1fW within deadband ±%dW of target %dW, no action.",
                           sensor_filtered, self.deadband, active_target)
             
@@ -4293,7 +4516,10 @@ class ChargeDischargeController:
         #   - Not intentionally grid-charging (predictive/dynamic pricing)
         #   - Within a discharge window (inside a timeslot, or no timeslots configured)
         #   - Grid is importing (sensor_actual > 0)
-        discharge_available = self._get_available_batteries(is_charging=False)
+        discharge_available = self._get_available_batteries(
+            is_charging=False,
+            include_operation_blocks=False,
+        )
         has_reachable = any(c.is_available for c in self.coordinators)
         all_at_min_soc = (len(discharge_available) == 0) and has_reachable
         if all_at_min_soc and not self.grid_charging_active and sensor_actual > 0:
@@ -4523,6 +4749,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             enable_charge_hysteresis=battery_config.get("enable_charge_hysteresis", False),
             charge_hysteresis_percent=battery_config.get("charge_hysteresis_percent", 5),
             backup_offgrid_threshold=battery_config.get("backup_offgrid_threshold", 50),
+            allow_charge=battery_config.get("allow_charge", True),
+            allow_discharge=battery_config.get("allow_discharge", True),
         )
 
         # Restore persisted RS485 user preference and store entry reference for future persistence
