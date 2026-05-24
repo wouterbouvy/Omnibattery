@@ -320,6 +320,35 @@ class BalanceMonitor:
             extra=extra,
         )
 
+    async def async_record_active_balance_measurement(
+        self,
+        coordinator: Any,
+        vmax: float,
+        vmin: float,
+        soc: float | None,
+        phase: str | None = None,
+    ) -> None:
+        """Record the explicit active-balance delta measurement."""
+        try:
+            vmax_f = float(vmax)
+            vmin_f = float(vmin)
+        except (TypeError, ValueError):
+            return
+        try:
+            soc_f = float(soc) if soc is not None else None
+        except (TypeError, ValueError):
+            soc_f = None
+        delta_mv = (vmax_f - vmin_f) * 1000
+        await self._save_reading(
+            coordinator.host,
+            delta_mv,
+            vmax_f,
+            vmin_f,
+            soc_f,
+            "active_balance_measurement",
+            extra={"phase": phase},
+        )
+
     def get_recent_readings(self, host: str, limit: int = 10) -> list[dict]:
         """Return the most-recent stored readings (newest last)."""
         readings = self._data.get(host, {}).get("readings", [])
@@ -335,7 +364,7 @@ class BalanceMonitor:
         delta_mv: float,
         vmax: float,
         vmin: float,
-        soc: float,
+        soc: float | None,
         reading_type: str,
         coordinator: Any = None,
         extra: dict | None = None,
@@ -356,7 +385,7 @@ class BalanceMonitor:
         bat["readings"].append(entry)
         bat["readings"] = bat["readings"][-BALANCE_HISTORY_MAX:]
 
-        status = "unknown"
+        status = self._status_for_delta(delta_mv)
         if reading_type in ("formal", "formal_followup") and coordinator is not None:
             status = self._evaluate(host, delta_mv, bat, coordinator)
 
@@ -412,13 +441,16 @@ class BalanceMonitor:
 
     def _trend(self, host: str) -> dict:
         readings = self._data.get(host, {}).get("readings", [])
-        formal = [r for r in readings if r.get("type") in ("formal", "formal_followup")]
-        if len(formal) < 2:
+        delta_readings = [r for r in readings if r.get("delta_mV") is not None]
+        if not delta_readings:
             return {"trend": "unknown", "avg_4w": None}
 
-        last4 = formal[-4:]
+        last4 = delta_readings[-4:]
         values = [r["delta_mV"] for r in last4]
         avg = sum(values) / len(values)
+        if len(values) < 2:
+            return {"trend": "unknown", "avg_4w": round(avg, 1), "slope": 0.0}
+
         slope = (values[-1] - values[0]) / max(len(values) - 1, 1)
 
         if slope > 2:
@@ -470,8 +502,8 @@ class BalanceMonitor:
     def get_initial_state(self, host: str) -> dict:
         """Return state derived from store — used by sensors at startup."""
         readings = self._data.get(host, {}).get("readings", [])
-        formal = [r for r in readings if r.get("type") in ("formal", "formal_followup")]
-        if not formal:
+        delta_readings = [r for r in readings if r.get("delta_mV") is not None]
+        if not delta_readings:
             return {
                 "delta_mV": None,
                 "status": "unknown",
@@ -479,7 +511,7 @@ class BalanceMonitor:
                 "avg_4w": None,
                 "last_ts": None,
             }
-        last = formal[-1]
+        last = delta_readings[-1]
         trend = self._trend(host)
         return {
             "delta_mV": last["delta_mV"],
