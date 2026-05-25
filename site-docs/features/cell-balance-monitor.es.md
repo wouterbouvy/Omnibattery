@@ -13,6 +13,28 @@ En la práctica, el BMS de Marstek no siempre balancea bien las celdas por sí s
 - ralentiza la parte final de la carga al 100 % para dar tiempo al BMS a trabajar en la ventana de balanceo;
 - mide el desbalanceo siempre en un punto de tensión alto y repetible, en lugar de usar lecturas ruidosas a medio SOC.
 
+## La curva de carga LFP en detalle
+
+La química LFP (LiFePO4) tiene una curva de carga/descarga radicalmente distinta de la del Li-ion NMC o NCA. Entenderla es lo que justifica cada uno de los umbrales de tensión que usa esta integración.
+
+Una celda LFP típica de 3,2 V nominales se comporta así durante una carga a corriente constante:
+
+| Rango de SOC | Rango de tensión de celda | Pendiente |
+|---|---|---|
+| 0 – 10 % | 2,50 V → 3,20 V | Rodilla de entrada muy pronunciada |
+| 10 – 90 % | 3,20 V → 3,30 V | Casi plana — alrededor de 1 mV por % de SOC |
+| 90 – 97 % | 3,30 V → 3,45 V | Empieza una subida suave |
+| 97 – 99 % | 3,45 V → 3,55 V | Rodilla — la tensión empieza a subir con fuerza |
+| 99 – 100 % | 3,55 V → 3,65 V | Rodilla superior abrupta — el "acantilado" del final de carga |
+
+Esa larga meseta plana es la razón por la que, en mitad de la curva, la tensión LFP apenas dice nada sobre el estado de carga. Dos celdas que parecen idénticas a 3,28 V pueden tener en realidad un 5 – 10 % de diferencia de SOC entre ellas, lo cual es enorme.
+
+La meseta también significa que **el BMS no puede hacer un balanceo pasivo útil en mitad de la curva**. El balanceo pasivo funciona drenando corriente de la celda más alta a través de una resistencia. Para poder decidir cuál es la celda "más alta", el BMS necesita que la diferencia entre celdas se eleve por encima del ruido de medida. En la meseta todas las celdas leen prácticamente lo mismo, así que el BMS no tiene nada con lo que actuar.
+
+Solo cuando el pack entra en la rodilla superior (por encima de unos 3,45 V) las tensiones de celda se separan lo suficiente para que el BMS identifique a la celda líder. Una diferencia de 10 mV en la meseta puede corresponder a un 5 % de diferencia de SOC, pero los mismos 10 mV por encima de 3,50 V representan un delta de SOC minúsculo — que es justo lo que interesa al final de carga.
+
+Por eso el balanceo en LFP solo es eficaz en una ventana estrecha: aproximadamente el último 1 – 3 % de carga, por encima de 3,45 V. Fuera de esa ventana el BMS es prácticamente ciego al desbalanceo, y todo el tiempo que el pack pasa por debajo de la rodilla es tiempo durante el que las celdas *no* se están balanceando.
+
 ## Disponibilidad
 
 El monitor de equilibrio de celdas está siempre activo. No hay una opción de configuración separada porque las lecturas son datos útiles de salud de la batería y por sí solas no cambian el funcionamiento normal.
@@ -67,6 +89,45 @@ Cuando el switch está activado, esa batería queda excluida del control PD norm
 Si el BMS acepta el comando de carga pero la batería no carga realmente antes de llegar a 3.58 V, la integración lo interpreta como rechazo de carga. Primero descarga y después baja el voltaje de reintento en 0.01 V, hasta un mínimo de 3.40 V, para que el siguiente ciclo empiece desde un punto en el que el BMS tenga más probabilidad de aceptar carga.
 
 El modo de balanceo activo no tiene un límite fijo de 48 horas. Se ejecuta hasta que el delta medido en tensión alta es igual o inferior a 0.03 V, o hasta que el usuario apaga el switch.
+
+## Por qué estos umbrales de tensión
+
+Todos los cortes de tensión usados por la reducción al 100 % y por el modo de balanceo activo se eligen contra la curva LFP descrita arriba. Ninguno de estos números es arbitrario.
+
+| Umbral | Dónde se usa | Por qué este valor |
+|---|---|---|
+| **3,45 V** | Referencia para el inicio de la rodilla superior | Es aproximadamente donde la curva LFP abandona la meseta. Por debajo no se puede confiar en las decisiones de balanceo, porque las tensiones de las celdas están demasiado juntas para distinguirlas. |
+| **3,48 V** | Disparador para reducir la carga a 95 W | Un poco por encima de la rodilla. El pequeño margen confirma que el pack está realmente en la ventana de balanceo — y no en un rebote de tensión transitorio causado por un escalón de carga — antes de bajar la potencia. |
+| **3,49 V** | Suelo de descarga entre reintentos del balanceo activo; cambio de carga "rápida" a carga regulada | Está justo dentro de la ventana de balanceo. Parar la descarga aquí mantiene el pack en la zona donde el BMS aún puede ver y drenar la celda alta. Bajar más sacaría al pack de la rodilla y desperdiciaría el tiempo ya invertido en balancear. |
+| **3,58 V** | Punto de medida superior; se para la carga y se esperan 60 s antes de leer el delta | Lo bastante alto como para que incluso la celda *más baja* esté firmemente en la rodilla y la diferencia entre celdas sea significativa. Lo bastante bajo como para que la celda *más alta* siga claramente por debajo del techo de 3,65 V que indican las hojas LFP y por debajo del corte por sobretensión del BMS. El margen de ~70 mV es intencional: la diferencia entre celdas es justo lo que se quiere medir, y hay que dejarle sitio. |
+| **3,48 V (otra vez)** | Suelo de descarga al final del ciclo — la descarga final a 25 W tras completar un balanceo activo se detiene aquí | El mismo umbral usado para entrar en la reducción se reutiliza para salir de la ventana de balanceo. Parar a 3,48 V deja al pack justo por debajo del comienzo de la rodilla superior sin devolverlo del todo a la meseta profunda. Quedarse a 3,55 – 3,58 V durante mucho tiempo acelera el envejecimiento calendario, así que la integración baja deliberadamente al borde inferior de la ventana antes de soltar el control. |
+| **3,40 V** | Límite inferior del voltaje de reintento del balanceo activo cuando se detecta rechazo de carga | La integración baja el voltaje de reintento en 0,01 V cada vez que el BMS rechaza la carga, pero nunca por debajo de 3,40 V. Bajar más saldría completamente de la ventana de balanceo y obligaría a volver a subir toda la curva, lo que es una pérdida de tiempo. |
+| **0,03 V (30 mV)** | Umbral de finalización del balanceo activo | Se considera "suficientemente equilibrado" para un pack LFP en la parte alta de la rodilla. Forzar valores más estrictos (10 mV o menos) rara vez compensa, porque las corrientes de balanceo pasivo son minúsculas — ver la sección siguiente. |
+| **0,05 V (50 mV)** | Frontera verde / amarillo | Un pack por debajo de 50 mV en la parte alta se considera sano. Es más estricto que las especificaciones típicas de fabricantes LFP (80 – 100 mV) porque la medida se toma en la ventana de balanceo, donde las diferencias entre celdas están exageradas. |
+
+Las potencias de 95 W y 25 W están emparejadas con estos umbrales a propósito. Son lo bastante bajas como para que la tensión de celda medida bajo carga esté dominada por la propia química de la celda y no por la caída IR (resistiva) en la celda, en las pletinas y en los shunts del BMS. Cargar o descargar a cientos de vatios en la rodilla desplazaría la lectura aparente decenas de milivoltios y arruinaría tanto las comprobaciones de los umbrales como la medida final del delta.
+
+## Por qué tarda tanto
+
+El balanceo de celdas **no** es un proceso rápido — y los packs Marstek Venus no son una excepción. Hay dos razones.
+
+**1. La corriente de balanceo pasivo es muy pequeña.** Un BMS LFP típico drena la celda más alta a través de una resistencia con una corriente de entre 30 mA y 150 mA. Los packs Marstek Venus se mueven por la parte baja de ese rango. Para una celda de 100 Ah, un drenaje de 50 mA quita solo unos 0,05 % de SOC por hora a la celda alta. Por eso igualar diferencias incluso pequeñas entre celdas requiere muchas horas seguidas dentro de la ventana de balanceo.
+
+**2. La ventana de balanceo es estrecha.** El BMS solo puede drenar cuando el pack está por encima de ~3,45 V *y* la celda más alta destaca de forma detectable sobre el resto. En cuanto se para la carga o el pack vuelve a bajar de la rodilla, el balanceo se detiene. Un ciclo de carga normal que llega al 100 % y vuelve enseguida a descargar pasa solo unos minutos en la ventana útil — muy poco para que tenga efecto visible.
+
+La consecuencia práctica es:
+
+> **Reducir el delta de celdas en lo alto de carga unos 5 mV requiere típicamente alrededor de 24 horas de tiempo acumulado en la parte alta de la ventana de balanceo.**
+
+Esa cifra es coherente tanto con el cálculo de corrientes de drenaje de arriba como con lo observado en packs Venus reales. Desbalanceos mayores (50 mV o más) pueden necesitar **varios días** de sesiones repetidas de balanceo arriba antes de que el delta empiece a bajar de forma consistente. Packs que han estado crónicamente desbalanceados durante meses pueden tardar una semana o más en recuperarse.
+
+Esa es también la razón por la que el modo de balanceo activo no tiene una "vía rápida":
+
+- el límite de 95 W de carga por encima de 3,48 V está pensado para mantener al pack en la rodilla el tiempo suficiente para que el BMS avance, en lugar de atravesarla en segundos;
+- los 25 W de descarga entre reintentos están pensados para que el pack se quede cerca de 3,49 V sin salir de la ventana;
+- el bucle de balanceo activo puede ejecutarse indefinidamente, porque cualquier duración por debajo de "muchas horas" difícilmente moverá el delta.
+
+Si el objetivo es recuperar un pack visiblemente desbalanceado, lo correcto es activar el modo de balanceo activo y **dejarlo funcionando toda la noche (o más tiempo) y mirar el resultado al día siguiente**. Mirar el delta de celdas en tiempo real esperando movimientos en cuestión de minutos solo lleva a frustración.
 
 ## Cómo se mide el desbalanceo
 
