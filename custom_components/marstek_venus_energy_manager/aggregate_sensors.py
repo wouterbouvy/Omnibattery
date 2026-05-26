@@ -160,7 +160,7 @@ class MarstekVenusAggregateSensor(SensorEntity):
         key = self.definition["key"]
         
         if key == "system_soc":
-            return self._calculate_average_soc()
+            return self._calculate_system_soc()
         elif key == "system_charge_power":
             return self._calculate_total_charge_power()
         elif key == "system_discharge_power":
@@ -176,25 +176,29 @@ class MarstekVenusAggregateSensor(SensorEntity):
 
         return None
 
-    def _calculate_average_soc(self) -> float | None:
-        """Calculate average SOC across all batteries."""
-        soc_values = []
+    def _calculate_system_soc(self) -> float | None:
+        """Calculate capacity-weighted SOC across all batteries."""
+        total_capacity = 0
+        total_stored = 0
+
         for coordinator in self.coordinators:
             if coordinator.data:
                 soc = coordinator.data.get("battery_soc")
-                if soc is not None:
-                    soc_values.append(soc)
+                capacity = coordinator.data.get("battery_total_energy")
+                if soc is not None and capacity is not None and capacity > 0:
+                    total_capacity += capacity
+                    total_stored += (soc / 100.0) * capacity
 
-        if not soc_values:
+        if total_capacity <= 0:
             return None
 
-        avg_soc = sum(soc_values) / len(soc_values)
+        weighted_soc = (total_stored / total_capacity) * 100
         has_v3 = any(
             getattr(c, "battery_version", "v2") in ("v3", "vA", "vD")
             for c in self.coordinators
         )
         precision = 1 if has_v3 else self.definition.get("precision", 0)
-        return round(avg_soc, precision)
+        return round(weighted_soc, precision)
 
     def _calculate_total_charge_power(self) -> float | None:
         """Calculate total charge power across all batteries.

@@ -50,7 +50,8 @@
           "min_soc": "SOC mínimo de descarga (%)",
           "enable_charge_hysteresis": "Activar histéresis de carga",
           "charge_hysteresis_percent": "Porcentaje de histéresis (%)",
-          "backup_offgrid_threshold": "Umbral de carga offgrid de backup (W)"
+          "backup_offgrid_threshold": "Umbral de carga offgrid de backup (W)",
+          "full_charge_voltage_taper_enabled": "Activar reduccion por voltaje al cargar al 100%"
         },
         "data_description": {
           "max_charge_power": "Potencia máxima permitida para cargar la batería",
@@ -59,7 +60,8 @@
           "min_soc": "Estado de carga mínimo para descarga (12-30%) - la batería no descargará por debajo de este valor",
           "enable_charge_hysteresis": "Evita que la batería cargue cuando está cerca del SOC máximo",
           "charge_hysteresis_percent": "La batería no cargará hasta que el SOC baje a (max_soc - histéresis). Ej: SOC max 100% con 5% histéresis = no carga hasta 95%",
-          "backup_offgrid_threshold": "Una carga offgrid superior a este valor se considera un evento de backup activo, excluyendo la batería del control PD. Auméntalo si tienes cargas permanentes (router, cámaras) en el puerto offgrid."
+          "backup_offgrid_threshold": "Una carga offgrid superior a este valor se considera un evento de backup activo, excluyendo la batería del control PD. Auméntalo si tienes cargas permanentes (router, cámaras) en el puerto offgrid.",
+          "full_charge_voltage_taper_enabled": "Cuando el objetivo es 100%, limita la carga a 95 W desde 3.48 V de celda maxima y para en 3.58 V para medir el desbalanceo tras 60 segundos."
         }
       },
       "time_slots": {
@@ -216,12 +218,10 @@
         "title": "Configuración de carga completa semanal",
         "description": "Selecciona el día de la semana en el que las baterías deben cargarse al 100% para el balanceo de celdas. Una vez alcanzado el 100%, el sistema revertirá al límite de carga máximo configurado.",
         "data": {
-          "weekly_full_charge_day": "Día de la semana",
-          "enable_balance_monitor": "Activar monitor de balance de celdas"
+          "weekly_full_charge_day": "Día de la semana"
         },
         "data_description": {
-          "weekly_full_charge_day": "Día en el que las baterías se cargarán al 100% independientemente del SOC máximo configurado. Esto ayuda a equilibrar las celdas de la batería.",
-          "enable_balance_monitor": "Al activar esta opción, el sistema analiza el balance de voltaje de las celdas tras cada carga completa y genera alertas si se detecta desbalanceo. También omite el retraso de carga solar ese día para que la batería llegue al 100% y permanezca en flotación mientras haya sol."
+          "weekly_full_charge_day": "Día en el que las baterías se cargarán al 100% independientemente del SOC máximo configurado. Esto ayuda a equilibrar las celdas de la batería."
         }
       },
       "charge_delay": {
@@ -333,7 +333,7 @@
       "invalid_unit": "El sensor de predicción solar debe tener como unidad 'kWh' o 'Wh'.",
       "overlapping_slots": "Esta franja se solapa con una existente. Ajuste los horarios o los días.",
       "midnight_crossing": "La hora de inicio debe ser anterior a la hora de fin. Para períodos nocturnos, cree dos franjas separadas (ej: 22:00-23:59 y 00:00-06:00).",
-      "no_price_data": "El sensor seleccionado no tiene los atributos de precio esperados. Nordpool: necesita `raw_today`. PVPC: necesita `price_00h` … `price_23h`. CKW: necesita el atributo `prices` con una lista de franjas."
+      "no_price_data": "El sensor seleccionado no tiene los atributos de precio esperados. Nordpool: necesita `raw_today`. PVPC: necesita `price_00h` … `price_23h`. CKW: necesita el atributo `prices` con una lista de franjas. EPEX: necesita el atributo `data` con una lista de franjas. ENTSO-e: necesita el atributo `prices_today` con una lista de franjas."
     },
     "abort": {
       "already_configured": "Esta integración ya está configurada."
@@ -406,7 +406,8 @@
           "min_soc": "SOC mínimo de descarga (%)",
           "enable_charge_hysteresis": "Activar histéresis de carga",
           "charge_hysteresis_percent": "Porcentaje de histéresis (%)",
-          "backup_offgrid_threshold": "Umbral de carga offgrid de backup (W)"
+          "backup_offgrid_threshold": "Umbral de carga offgrid de backup (W)",
+          "full_charge_voltage_taper_enabled": "Activar reduccion por voltaje al cargar al 100%"
         },
         "data_description": {
           "max_charge_power": "Potencia máxima permitida para cargar la batería",
@@ -415,7 +416,8 @@
           "min_soc": "Estado de carga mínimo para descarga (12-30%)",
           "enable_charge_hysteresis": "Evita que la batería cargue cuando está cerca del SOC máximo",
           "charge_hysteresis_percent": "La batería no cargará hasta que el SOC baje a (max_soc - histéresis). Ej: SOC max 100% con 5% histéresis = no carga hasta 95%",
-          "backup_offgrid_threshold": "Una carga offgrid superior a este valor se considera un evento de backup activo, excluyendo la batería del control PD. Auméntalo si tienes cargas permanentes (router, cámaras) en el puerto offgrid."
+          "backup_offgrid_threshold": "Una carga offgrid superior a este valor se considera un evento de backup activo, excluyendo la batería del control PD. Auméntalo si tienes cargas permanentes (router, cámaras) en el puerto offgrid.",
+          "full_charge_voltage_taper_enabled": "Cuando el objetivo es 100%, limita la carga a 95 W desde 3.48 V de celda maxima y para en 3.58 V para medir el desbalanceo tras 60 segundos."
         }
       },
       "time_slots": {
@@ -572,12 +574,10 @@
         "title": "Configuración de carga completa semanal",
         "description": "Selecciona el día de la semana en el que las baterías deben cargarse al 100% para el balanceo de celdas. Una vez alcanzado el 100%, el sistema revertirá al límite de carga máximo configurado.",
         "data": {
-          "weekly_full_charge_day": "Día de la semana",
-          "enable_balance_monitor": "Activar monitor de balance de celdas"
+          "weekly_full_charge_day": "Día de la semana"
         },
         "data_description": {
-          "weekly_full_charge_day": "Día en el que las baterías se cargarán al 100% independientemente del SOC máximo configurado. Esto ayuda a equilibrar las celdas de la batería.",
-          "enable_balance_monitor": "Al activar esta opción, el sistema analiza el balance de voltaje de las celdas tras cada carga completa y genera alertas si se detecta desbalanceo. También omite el retraso de carga solar ese día para que la batería llegue al 100% y permanezca en flotación mientras haya sol."
+          "weekly_full_charge_day": "Día en el que las baterías se cargarán al 100% independientemente del SOC máximo configurado. Esto ayuda a equilibrar las celdas de la batería."
         }
       },
       "charge_delay": {
@@ -689,7 +689,7 @@
       "invalid_unit": "El sensor de predicción solar debe tener como unidad 'kWh' o 'Wh'.",
       "overlapping_slots": "Esta franja se solapa con una existente. Ajuste los horarios o los días.",
       "midnight_crossing": "La hora de inicio debe ser anterior a la hora de fin. Para períodos nocturnos, cree dos franjas separadas (ej: 22:00-23:59 y 00:00-06:00).",
-      "no_price_data": "El sensor seleccionado no tiene los atributos de precio esperados. Nordpool: necesita `raw_today`. PVPC: necesita `price_00h` … `price_23h`. CKW: necesita el atributo `prices` con una lista de franjas."
+      "no_price_data": "El sensor seleccionado no tiene los atributos de precio esperados. Nordpool: necesita `raw_today`. PVPC: necesita `price_00h` … `price_23h`. CKW: necesita el atributo `prices` con una lista de franjas. EPEX: necesita el atributo `data` con una lista de franjas. ENTSO-e: necesita el atributo `prices_today` con una lista de franjas."
     }
   },
   "selector": {
@@ -715,7 +715,9 @@
       "options": {
         "nordpool": "Nordpool",
         "pvpc": "PVPC (España – ESIOS REE)",
-        "ckw": "CKW (Suiza)"
+        "ckw": "CKW (Suiza)",
+        "epex": "EPEX Spot (p. ej. aWATTar)",
+        "entsoe": "ENTSO-e (Plataforma de Transparencia)"
       }
     }
   },
@@ -744,6 +746,12 @@
       },
       "battery_allow_discharge": {
         "name": "Permitir Descarga"
+      },
+      "full_charge_voltage_taper": {
+        "name": "Reduccion Carga 100% por Voltaje"
+      },
+      "active_balance_mode": {
+        "name": "Modo de Balanceo Activo"
       },
       "automation_charging_active": {
         "name": "Carga por Precio Externo"
@@ -791,6 +799,7 @@
           "manual": "Modo Manual",
           "grid_charging": "Cargando desde la Red",
           "weekly_full_charge": "Carga Semanal Completa",
+          "active_balance_mode": "Modo de Balanceo Activo",
           "charge_delayed": "Carga Retrasada",
           "waiting_for_solar": "Esperando Solar",
           "charging_to_setpoint": "Cargando al Setpoint",
@@ -961,10 +970,10 @@
         "name": "Ciclos de la Batería (Calculado)"
       },
       "cell_delta": {
-        "name": "Delta de Celda"
+        "name": "Balance - Delta de Celda (al 100%)"
       },
       "balance_status": {
-        "name": "Estado de Balance",
+        "name": "Balance - Estado",
         "state": {
           "green": "Balanceado",
           "yellow": "Desbalanceo leve",
@@ -974,7 +983,7 @@
         }
       },
       "delta_trend": {
-        "name": "Tendencia de Balance",
+        "name": "Balance - Tendencia",
         "state": {
           "rising": "Creciente",
           "stable": "Estable",
@@ -983,10 +992,10 @@
         }
       },
       "last_balance_read": {
-        "name": "Última Lectura de Balance"
+        "name": "Balance - Última Lectura"
       },
       "delta_avg_4w": {
-        "name": "Delta Promedio (4 lecturas)"
+        "name": "Balance - Delta Promedio (4 lecturas)"
       },
       "balance_neto": {
         "name": "Balance Neto",

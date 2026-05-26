@@ -19,7 +19,6 @@ from .const import (
     CYCLE_SENSOR_DEFINITIONS,
     CONF_ENABLE_CHARGE_DELAY,
     CONF_ENABLE_WEEKLY_FULL_CHARGE_DELAY,
-    CONF_ENABLE_BALANCE_MONITOR,
     CONF_ENABLE_PREDICTIVE_CHARGING,
     CONF_CHARGING_TIME_SLOT,
     CONF_SOLAR_FORECAST_SENSOR,
@@ -57,7 +56,6 @@ from .const import (
     DEFAULT_DELAY_SAFETY_MARGIN_MIN,
     DEFAULT_DELAY_SOC_SETPOINT_ENABLED,
     DEFAULT_DELAY_SOC_SETPOINT,
-    DEFAULT_ENABLE_BALANCE_MONITOR,
     DEFAULT_CAPACITY_PROTECTION_SOC,
     DEFAULT_CAPACITY_PROTECTION_LIMIT,
     CONF_PREDICTIVE_CHARGING_MODE,
@@ -452,6 +450,9 @@ class WeeklyFullChargeSensor(SensorEntity):
             "weekly_charge_day": self._controller.weekly_full_charge_day,
             "charge_delay_enabled": self._controller.charge_delay_enabled,
         }
+        completion_reason = self._controller._weekly_charge_status.get("completion_reason")
+        if completion_reason:
+            attrs["completion_reason"] = completion_reason
         return attrs
 
     @property
@@ -659,6 +660,9 @@ class ConfigurationSummarySensor(SensorEntity):
             attrs[f"battery_{n}_backup_offgrid_threshold_W"] = bat.get(
                 "backup_offgrid_threshold"
             )
+            attrs[f"battery_{n}_full_charge_voltage_taper_enabled"] = bat.get(
+                "full_charge_voltage_taper_enabled", True
+            )
 
         # --- Time slots ---
         slots = data.get("no_discharge_time_slots", [])
@@ -718,9 +722,7 @@ class ConfigurationSummarySensor(SensorEntity):
         attrs["weekly_full_charge_enabled"] = weekly_enabled
         if weekly_enabled:
             attrs["weekly_full_charge_day"] = data.get(CONF_WEEKLY_FULL_CHARGE_DAY)
-            attrs["balance_monitor_enabled"] = data.get(
-                CONF_ENABLE_BALANCE_MONITOR, DEFAULT_ENABLE_BALANCE_MONITOR
-            )
+            attrs["balance_monitor_enabled"] = True
 
         # --- Charge delay ---
         charge_delay = data.get(CONF_ENABLE_CHARGE_DELAY, False)
@@ -951,8 +953,14 @@ class IntegrationStatusSensor(SensorEntity):
 
         # Priority 3: Weekly full charge in progress
         if c.weekly_full_charge_enabled:
-            if c._weekly_charge_status.get("state") == "Charging to 100%":
+            if c._weekly_charge_status.get("state") in ("Charging to 100%", "Active balancing"):
                 return "weekly_full_charge"
+
+        if any(
+            status.get("state") == "active"
+            for status in c.get_active_balance_mode_status().values()
+        ):
+            return "active_balance_mode"
 
         # Priority 4: Charge delay states
         if c.charge_delay_enabled:
@@ -1079,6 +1087,14 @@ class IntegrationStatusSensor(SensorEntity):
                 if pause_until is not None
             }
 
+        normal_balance = c.get_normal_balance_status()
+        if normal_balance:
+            attrs["normal_balance_protection"] = normal_balance
+
+        active_balance_mode = c.get_active_balance_mode_status()
+        if active_balance_mode:
+            attrs["active_balance_mode"] = active_balance_mode
+
         non_responsive = c.non_responsive_battery_names
         if non_responsive:
             attrs["non_responsive_batteries"] = non_responsive
@@ -1096,7 +1112,7 @@ class IntegrationStatusSensor(SensorEntity):
 
 
 class NonResponsiveBatteriesSensor(SensorEntity):
-    """Diagnostic sensor showing batteries excluded due to non-responsive behavior."""
+    """Diagnostic sensor showing batteries that are unreachable or non-delivering."""
 
     def __init__(
         self, hass: HomeAssistant, entry: ConfigEntry, controller, coordinators: list
@@ -1116,7 +1132,7 @@ class NonResponsiveBatteriesSensor(SensorEntity):
 
     @property
     def native_value(self) -> str:
-        """Return names of excluded batteries, or 'None' if all are healthy."""
+        """Return names of non-responsive batteries, or 'None' if all are healthy."""
         names = self._controller.non_responsive_battery_names
         return ", ".join(names) if names else "None"
 
@@ -1128,18 +1144,29 @@ class NonResponsiveBatteriesSensor(SensorEntity):
         attrs = {}
         for coordinator in self._coordinators:
             info = self._controller._non_responsive_batteries.get(coordinator)
+            unreachable = (
+                not coordinator.is_available
+                and not getattr(coordinator, "_is_shutting_down", False)
+                and getattr(coordinator, "_consecutive_failures", 0) > 0
+            )
             if info and info.get("excluded_at") is not None:
                 elapsed_min = (now - info["excluded_at"]).total_seconds() / 60
                 remaining_min = max(0.0, info["cooldown_minutes"] - elapsed_min)
                 attrs[coordinator.name] = {
                     "excluded": True,
+                    "unreachable": unreachable,
+                    "reason": "non_delivery",
                     "cooldown_minutes": info["cooldown_minutes"],
                     "remaining_minutes": round(remaining_min, 1),
+                    "consecutive_failures": getattr(coordinator, "_consecutive_failures", 0),
                 }
             else:
                 attrs[coordinator.name] = {
-                    "excluded": False,
+                    "excluded": unreachable,
+                    "unreachable": unreachable,
+                    "reason": "connection_unavailable" if unreachable else None,
                     "fail_count": info["fail_count"] if info else 0,
+                    "consecutive_failures": getattr(coordinator, "_consecutive_failures", 0),
                 }
         return attrs
 

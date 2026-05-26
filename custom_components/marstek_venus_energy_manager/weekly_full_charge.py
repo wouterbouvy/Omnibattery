@@ -4,12 +4,13 @@ Owns:
 - Day-based activation logic (is_active)
 - Persistence of completion / registers-written across HA restarts
 - Hardware register (44000) writes to allow charging to 100% on v2 batteries
-- Completion detection (all batteries at 100%) and register restore
+- Completion detection (top-voltage measurement, 100% SOC, or BMS cutoff at 99%)
+- Register restore and hysteresis re-enable on completion
 - Mid-charge abort handling when day or feature flag changes
 
-Reads/writes the controller's existing public attributes for backward
-compatibility with sensors, switches and the balance monitor that read
-those attrs directly.
+Weekly uses the same 100% top-voltage taper/measurement flow as a user-selected
+max_soc=100. Active cell balancing remains the job of the per-battery Active
+Balance Mode.
 """
 from __future__ import annotations
 
@@ -153,6 +154,7 @@ class WeeklyFullChargeManager:
                 ctrl.weekly_full_charge_registers_written = False
                 ctrl._force_full_charge = False
                 ctrl._weekly_charge_status["state"] = "Idle"
+                ctrl._weekly_charge_status.pop("completion_reason", None)
                 # Save the cleared state asynchronously (don't await to avoid blocking)
                 asyncio.create_task(self.save_state())
 
@@ -210,9 +212,13 @@ class WeeklyFullChargeManager:
                 # Restore delay state
                 ctrl._charge_delay_unlocked = data.get("delay_unlocked", False)
                 ctrl._solar_t_start = data.get("solar_t_start")
-                _LOGGER.info("Weekly Full Charge: Restored state - complete=%s, registers_written=%s, delay_unlocked=%s",
-                            ctrl.weekly_full_charge_complete, ctrl.weekly_full_charge_registers_written,
-                            ctrl._charge_delay_unlocked)
+                _LOGGER.info(
+                    "Weekly Full Charge: Restored state - complete=%s, "
+                    "registers_written=%s, delay_unlocked=%s",
+                    ctrl.weekly_full_charge_complete,
+                    ctrl.weekly_full_charge_registers_written,
+                    ctrl._charge_delay_unlocked,
+                )
             else:
                 _LOGGER.debug("Weekly Full Charge: Stored state is from %s, today is %s - ignoring",
                               stored_date, today_iso)
@@ -266,6 +272,8 @@ class WeeklyFullChargeManager:
         if ctrl._weekly_charge_needs_restore:
             _LOGGER.info("Weekly Full Charge: Restoring hardware cutoff registers after mid-charge abort")
             for coordinator in ctrl.coordinators:
+                if ctrl._is_active_balance_mode_running(coordinator):
+                    continue
                 cutoff_reg = coordinator.get_register("charging_cutoff_capacity")
                 if ctrl._is_backup_function_active(coordinator):
                     continue
@@ -288,6 +296,7 @@ class WeeklyFullChargeManager:
             ctrl._weekly_charge_saved_max_soc.clear()
             ctrl._weekly_charge_needs_restore = False
             ctrl._weekly_charge_status["state"] = "Idle"
+            ctrl._weekly_charge_status.pop("completion_reason", None)
 
         if not ctrl.weekly_full_charge_enabled and not ctrl._force_full_charge:
             return
@@ -314,6 +323,8 @@ class WeeklyFullChargeManager:
             else:
                 _LOGGER.info("Weekly Full Charge: Activating for compatible batteries")
             for coordinator in ctrl.coordinators:
+                if ctrl._is_active_balance_mode_running(coordinator):
+                    continue
                 cutoff_reg = coordinator.get_register("charging_cutoff_capacity")
 
                 if ctrl._is_backup_function_active(coordinator):
@@ -345,61 +356,79 @@ class WeeklyFullChargeManager:
 
             ctrl.weekly_full_charge_registers_written = True
             ctrl._weekly_charge_status["state"] = "Charging to 100%"
+            ctrl._weekly_charge_status.pop("completion_reason", None)
             # Persist state so that the next restart can restore both registers_written
             # and the status field immediately.
             asyncio.create_task(self.save_state())
 
-        # Check if all batteries reached 100% or BMS cut off at >= 99%
-        all_batteries_full = all(
-            self.is_battery_full(c)
-            for c in ctrl.coordinators if c.data
+        if hasattr(ctrl, "_normal_balance_reset_if_new_day"):
+            ctrl._normal_balance_reset_if_new_day()
+
+        # Completion: when every battery has completed the shared top-voltage
+        # measurement, or has reached a hardware/BMS full condition, restore
+        # registers and mark done.
+        batteries_with_data = [
+            c
+            for c in ctrl.coordinators
+            if c.data and not ctrl._is_active_balance_mode_running(c)
+        ]
+        measured = getattr(ctrl, "_normal_balance_last_delta_v", {})
+        all_batteries_full = bool(batteries_with_data) and all(
+            c in measured or self.is_battery_full(c) for c in batteries_with_data
         )
 
         if all_batteries_full and not ctrl.weekly_full_charge_complete:
-            # All batteries just reached 100% (or BMS cut off at 99%) - mark as complete
-            _LOGGER.info("Weekly Full Charge: Complete - reverting to configured limits")
-            ctrl.weekly_full_charge_complete = True
-            ctrl._weekly_charge_status["state"] = "Complete"
-            self._bms_cutoff_counts.clear()
+            await self._complete_weekly_charge("top_voltage_measurement_complete")
 
-            # Restore register 44000 to original max_soc values (v2 only)
-            for coordinator in ctrl.coordinators:
-                cutoff_reg = coordinator.get_register("charging_cutoff_capacity")
+    async def _complete_weekly_charge(self, reason: str) -> None:
+        """Mark weekly full charge complete and restore configured limits."""
+        ctrl = self._controller
+        _LOGGER.info("Weekly Full Charge: Complete (%s) - reverting to configured limits", reason)
+        ctrl.weekly_full_charge_complete = True
+        ctrl._weekly_charge_status["state"] = "Complete"
+        ctrl._weekly_charge_status["completion_reason"] = reason
+        self._bms_cutoff_counts.clear()
 
-                if ctrl._is_backup_function_active(coordinator):
-                    _LOGGER.debug("%s: Skipping cutoff restore - backup function is active", coordinator.name)
-                    continue
+        # Restore register 44000 to original max_soc values (v2 only).
+        for coordinator in ctrl.coordinators:
+            if ctrl._is_active_balance_mode_running(coordinator):
+                continue
+            cutoff_reg = coordinator.get_register("charging_cutoff_capacity")
 
-                if cutoff_reg is None:
-                    _LOGGER.debug("%s: No hardware cutoff register to restore (v3 battery)", coordinator.name)
-                    # v3: software enforcement automatically reverts to max_soc
-                    continue
+            if ctrl._is_backup_function_active(coordinator):
+                _LOGGER.debug("%s: Skipping cutoff restore - backup function is active", coordinator.name)
+                continue
 
-                # v2: restore hardware register
-                try:
-                    original_max_soc = ctrl._weekly_charge_saved_max_soc.get(
-                        coordinator.name, coordinator.max_soc
-                    )
-                    max_soc_value = int(original_max_soc / 0.1)  # Convert to register value
-                    await coordinator.write_register(cutoff_reg, max_soc_value, do_refresh=False)
-                    await asyncio.sleep(0.1)
-                    _LOGGER.debug("%s: Restored hardware cutoff to %d%% (reg=%d)",
-                                coordinator.name, original_max_soc, max_soc_value)
-                except Exception as e:
-                    _LOGGER.error("%s: Failed to restore charging cutoff register: %s", coordinator.name, e)
+            if cutoff_reg is None:
+                _LOGGER.debug("%s: No hardware cutoff register to restore (v3 battery)", coordinator.name)
+                continue
 
-            ctrl._weekly_charge_saved_max_soc.clear()
+            try:
+                original_max_soc = ctrl._weekly_charge_saved_max_soc.get(
+                    coordinator.name, coordinator.max_soc
+                )
+                max_soc_value = int(original_max_soc / 0.1)
+                await coordinator.write_register(cutoff_reg, max_soc_value, do_refresh=False)
+                await asyncio.sleep(0.1)
+                _LOGGER.debug("%s: Restored hardware cutoff to %d%% (reg=%d)",
+                              coordinator.name, original_max_soc, max_soc_value)
+            except Exception as e:
+                _LOGGER.error("%s: Failed to restore charging cutoff register: %s", coordinator.name, e)
 
-            # Re-enable hysteresis for batteries that have it configured
-            for coordinator in ctrl.coordinators:
-                if coordinator.enable_charge_hysteresis:
-                    coordinator._hysteresis_active = True
-                    # Set base SOC to current level (~100% after full charge) so the threshold
-                    # is "actual peak SOC - hysteresis" (e.g. 90%), not "max_soc - hysteresis" (e.g. 70%)
-                    current_soc = coordinator.data.get("battery_soc", 100) if coordinator.data else 100
-                    coordinator._hysteresis_base_soc = current_soc
-                    _LOGGER.debug("%s: Re-enabled hysteresis after weekly full charge (base SOC: %.1f%%)",
-                                  coordinator.name, coordinator._hysteresis_base_soc)
+        ctrl._weekly_charge_saved_max_soc.clear()
 
-            # Persist the completion state so it survives HA restarts
-            await self.save_state()
+        # Re-enable hysteresis for batteries that have it configured.
+        for coordinator in ctrl.coordinators:
+            if ctrl._is_active_balance_mode_running(coordinator):
+                continue
+            if coordinator.enable_charge_hysteresis:
+                coordinator._hysteresis_active = True
+                current_soc = coordinator.data.get("battery_soc", 100) if coordinator.data else 100
+                coordinator._hysteresis_base_soc = current_soc
+                _LOGGER.debug(
+                    "%s: Re-enabled hysteresis after weekly full charge (base SOC: %.1f%%)",
+                    coordinator.name,
+                    coordinator._hysteresis_base_soc,
+                )
+
+        await self.save_state()

@@ -19,6 +19,9 @@ from .const import (
     MESSAGE_WAIT_MS,
     DEBUG_POLL_SENSOR_SKIPS,
     DEBUG_POLL_SENSOR_VALUES,
+    CONF_ACTIVE_BALANCE_MODE_ENABLED,
+    CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
+    DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
 )
 from .modbus_client import MarstekModbusClient
 from .alarm_notifier import AlarmNotifier
@@ -35,7 +38,9 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
                  max_soc: int = 100, min_soc: int = 12,
                  enable_charge_hysteresis: bool = False, charge_hysteresis_percent: int = 5,
                  backup_offgrid_threshold: int = 50,
-                 allow_charge: bool = True, allow_discharge: bool = True) -> None:
+                 allow_charge: bool = True, allow_discharge: bool = True,
+                 active_balance_mode_enabled: bool = False,
+                 full_charge_voltage_taper_enabled: bool = DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED) -> None:
         """Initialize the data update coordinator."""
         super().__init__(
             hass,
@@ -72,8 +77,30 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         self.backup_offgrid_threshold = backup_offgrid_threshold
         self.allow_charge = allow_charge
         self.allow_discharge = allow_discharge
+        self.active_balance_mode_enabled = active_balance_mode_enabled
+        setattr(self, CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED, full_charge_voltage_taper_enabled)
         self._hysteresis_active = False  # Tracks if battery reached max_soc (for hysteresis)
         self._hysteresis_base_soc = None  # SOC that triggered hysteresis (used as threshold base)
+        self.active_balance_mode_started_ts = None
+        self.active_balance_mode_run_date = None
+        self.active_balance_mode_top_reached = False
+        self.active_balance_mode_completed_date = None
+        self.active_balance_mode_completion_reason = None
+        self.active_balance_mode_saved_max_soc = None
+        self.active_balance_mode_cutoff_applied = False
+        self.active_balance_mode_start_delta_mv = None
+        self.active_balance_mode_start_delta_source = None
+        self.active_balance_mode_start_max_cell_voltage = None
+        self.active_balance_mode_start_min_cell_voltage = None
+        self.active_balance_mode_last_cutoff_ts = None
+        self.active_balance_mode_last_cutoff_delta_mv = None
+        self.active_balance_mode_last_cutoff_delta_v = None
+        self.active_balance_mode_last_cutoff_source = None
+        self.active_balance_mode_last_cutoff_max_cell_voltage = None
+        self.active_balance_mode_last_cutoff_min_cell_voltage = None
+        self.active_balance_mode_last_cutoff_soc = None
+        self.active_balance_mode_wait_started_ts = None
+        self.active_balance_mode_retry_voltage = None
         self._scan_counter = 0
         self.lock = asyncio.Lock()
         self._is_shutting_down = False  # Flag to suppress errors during shutdown
@@ -93,7 +120,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         self._entity_registry = None
         self.rs485_user_disabled = False  # Set by RS485 switch when user explicitly disables
         self._config_entry = None  # Set after creation to allow persisting rs485_user_disabled
-        self.balance_hold = False  # Set by BalanceMonitor to prevent discharge during OCV rest
+        self.balance_hold = False  # Legacy BalanceMonitor hold flag; kept for persisted-state cleanup
 
         # Load version-specific definitions
         if self.battery_version == "v3":
@@ -244,7 +271,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         new_data = dict(self._config_entry.data)
         batteries = [dict(b) for b in new_data.get("batteries", [])]
         for battery in batteries:
-            if battery.get("host") == self.host:
+            if battery.get("host") == self.host and battery.get("port") == self.port:
                 battery["rs485_user_disabled"] = value
                 break
         new_data["batteries"] = batteries
@@ -257,7 +284,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         new_data = dict(self._config_entry.data)
         batteries = [dict(b) for b in new_data.get("batteries", [])]
         for battery in batteries:
-            if battery.get("host") == self.host:
+            if battery.get("host") == self.host and battery.get("port") == self.port:
                 battery[key] = value
                 break
         new_data["batteries"] = batteries

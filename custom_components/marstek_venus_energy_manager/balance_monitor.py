@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -15,17 +15,9 @@ from .const import (
     BALANCE_THRESHOLD_YELLOW,
     BALANCE_THRESHOLD_ORANGE,
     BALANCE_THRESHOLD_RED,
-    BALANCE_OCV_WAIT_SECONDS,
-    BALANCE_ORANGE_HOLD_SECONDS,
-    BALANCE_COOLDOWN_HOURS,
-    BALANCE_OPPORTUNISTIC_COOLDOWN_HOURS,
-    BALANCE_POWER_STABLE_POLLS,
-    BALANCE_POWER_REST_THRESHOLD_W,
-    BALANCE_VOLTAGE_SETTLING_THRESHOLD_V,
     BALANCE_HISTORY_MAX,
     BALANCE_RED_CONSECUTIVE_ALERT,
     BALANCE_TREND_ALERT_AVG_MV,
-    WEEKDAY_MAP,
 )
 
 if TYPE_CHECKING:
@@ -37,7 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class _BatteryState:
-    phase: str = "IDLE"         # IDLE | WAITING_OCV | HOLD_ORANGE
+    phase: str = "IDLE"
     phase_started: datetime | None = None
     stable_polls: int = 0
     prev_vmax: float | None = None
@@ -100,9 +92,13 @@ class BalanceMonitor:
         )
 
         if phase in ("WAITING_OCV", "HOLD_ORANGE"):
-            coordinator.balance_hold = True
+            coordinator.balance_hold = False
+            self._states[host] = _BatteryState()
+            await self._persist_state(host, self._states[host])
             _LOGGER.info(
-                "[%s] Balance monitor: restored phase %s from store", coordinator.name, phase
+                "[%s] Balance monitor: cleared legacy phase %s from store",
+                coordinator.name,
+                phase,
             )
 
     # ------------------------------------------------------------------
@@ -110,147 +106,128 @@ class BalanceMonitor:
     # ------------------------------------------------------------------
 
     async def async_process(self, coordinator: Any) -> None:
-        """Run state machine for one battery. Called from ChargeDischargeController."""
+        """Clear legacy OCV state.
+
+        Imbalance readings are now recorded only by explicit 3.55 V top-charge
+        measurements and active-balance measurements.
+        """
         host = coordinator.host
         if host not in self._states:
             self._states[host] = _BatteryState()
 
-        data = coordinator.data or {}
-        soc = data.get("battery_soc")
-        power = data.get("battery_power")
-        vmax = data.get("max_cell_voltage")
-        vmin = data.get("min_cell_voltage")
-
-        if None in (soc, power, vmax, vmin):
-            return
-
         state = self._states[host]
-        now = datetime.now(timezone.utc)
-
-        if state.phase == "IDLE":
-            await self._process_idle(coordinator, state, soc, power, vmax, vmin, now)
-        elif state.phase == "WAITING_OCV":
-            await self._process_waiting_ocv(coordinator, state, soc, power, vmax, vmin, now)
-        elif state.phase == "HOLD_ORANGE":
-            await self._process_hold_orange(coordinator, state, vmax, vmin, soc, now)
-
-    # ------------------------------------------------------------------
-    # State handlers
-    # ------------------------------------------------------------------
-
-    async def _process_idle(
-        self, coordinator, state, soc, power, vmax, vmin, now
-    ) -> None:
-        host = coordinator.host
-        is_charge_day = self._is_weekly_charge_day()
-
-        if is_charge_day and soc >= 100 and not self._read_recently(host, BALANCE_COOLDOWN_HOURS):
-            coordinator.balance_hold = True
-            state.phase = "WAITING_OCV"
-            state.phase_started = now
-            state.stable_polls = 0
-            state.prev_vmax = vmax
-            await self._persist_state(host, state)
-            _LOGGER.info("[%s] Balance monitor: starting OCV wait (discharge held)", coordinator.name)
-            return
-
-        # Opportunistic — no discharge block, no threshold evaluation
-        if (
-            not is_charge_day
-            and soc >= 100
-            and abs(power) < BALANCE_POWER_REST_THRESHOLD_W
-            and not self._read_recently(
-                host,
-                BALANCE_OPPORTUNISTIC_COOLDOWN_HOURS,
-                types=("formal", "formal_followup", "opportunistic"),
-            )
-        ):
-            delta_mv = (vmax - vmin) * 1000
-            _LOGGER.debug(
-                "[%s] Balance monitor: opportunistic reading %.0f mV", coordinator.name, delta_mv
-            )
-            await self._save_reading(host, delta_mv, vmax, vmin, soc, "opportunistic")
-
-    async def _process_waiting_ocv(
-        self, coordinator, state, soc, power, vmax, vmin, now
-    ) -> None:
-        host = coordinator.host
-
-        # Cancel if charge was interrupted
-        if soc < 95:
-            _LOGGER.warning(
-                "[%s] Balance monitor: SOC dropped to %s during OCV wait, cancelling",
-                coordinator.name, soc,
-            )
+        if state.phase != "IDLE" or coordinator.balance_hold:
             coordinator.balance_hold = False
             state.phase = "IDLE"
             state.phase_started = None
-            await self._persist_state(host, state)
-            return
-
-        elapsed = (now - state.phase_started).total_seconds() if state.phase_started else 0
-        if elapsed < BALANCE_OCV_WAIT_SECONDS:
-            return
-
-        # After wait: require stable low power AND settling voltage
-        if abs(power) < BALANCE_POWER_REST_THRESHOLD_W:
-            state.stable_polls += 1
-        else:
             state.stable_polls = 0
-
-        vmax_drop = (state.prev_vmax - vmax) if state.prev_vmax is not None else 0
-        voltage_settled = vmax_drop < BALANCE_VOLTAGE_SETTLING_THRESHOLD_V
-        state.prev_vmax = vmax
-
-        if state.stable_polls < BALANCE_POWER_STABLE_POLLS or not voltage_settled:
+            state.prev_vmax = None
             await self._persist_state(host, state)
-            return
 
-        # Ready to read OCV
-        delta_mv = (vmax - vmin) * 1000
-        _LOGGER.info(
-            "[%s] Balance monitor: OCV reading %.0f mV (vmax=%.4f vmin=%.4f)",
-            coordinator.name, delta_mv, vmax, vmin,
-        )
-        status = await self._save_reading(host, delta_mv, vmax, vmin, soc, "formal", coordinator)
+    # ------------------------------------------------------------------
+    # External entry point — called by the active-balance controller
+    # ------------------------------------------------------------------
 
-        if status == "orange":
-            state.phase = "HOLD_ORANGE"
-            state.phase_started = now
-            state.stable_polls = 0
-        else:
-            coordinator.balance_hold = False
-            state.phase = "IDLE"
-            state.phase_started = None
-
-        await self._persist_state(host, state)
-
-    async def _process_hold_orange(
-        self, coordinator, state, vmax, vmin, soc, now
+    async def async_record_active_balance_transition(
+        self,
+        coordinator: Any,
+        vmax: float,
+        vmin: float,
+        soc: float | None,
+        from_phase: str | None,
+        to_phase: str,
     ) -> None:
-        host = coordinator.host
-        elapsed = (now - state.phase_started).total_seconds() if state.phase_started else 0
-        if elapsed < BALANCE_ORANGE_HOLD_SECONDS:
+        """Record a delta reading when the active-balance mode switches phase.
+
+        The current use case is the CHARGE/HOLD -> DISCHARGE transition, which is
+        the natural inflection point to observe the cell delta. Saved with type
+        ``active_balance_transition`` so it does not feed the top-charge evaluator
+        or trend alerts; it just shows up in the cell-delta sensor history.
+        """
+        try:
+            vmax_f = float(vmax)
+            vmin_f = float(vmin)
+        except (TypeError, ValueError):
             return
-
-        delta_mv = (vmax - vmin) * 1000
-        _LOGGER.info(
-            "[%s] Balance monitor: follow-up reading after 2.5h hold: %.0f mV",
-            coordinator.name, delta_mv,
+        try:
+            soc_f = float(soc) if soc is not None else None
+        except (TypeError, ValueError):
+            soc_f = None
+        delta_mv = (vmax_f - vmin_f) * 1000
+        extra = {"from_phase": from_phase, "to_phase": to_phase}
+        await self._save_reading(
+            coordinator.host,
+            delta_mv,
+            vmax_f,
+            vmin_f,
+            soc_f,
+            "active_balance_transition",
+            extra=extra,
         )
-        await self._save_reading(host, delta_mv, vmax, vmin, soc, "formal_followup", coordinator)
 
-        if delta_mv >= BALANCE_THRESHOLD_ORANGE:
-            await self._notify(
-                f"marstek_balance_persist_{host}",
-                f"⚠️ Cell imbalance persists — {coordinator.name}",
-                f"Delta still {delta_mv:.0f} mV after 2.5 h rest. Consider checking the battery.",
-            )
+    async def async_record_active_balance_measurement(
+        self,
+        coordinator: Any,
+        vmax: float,
+        vmin: float,
+        soc: float | None,
+        phase: str | None = None,
+    ) -> None:
+        """Record the explicit active-balance delta measurement."""
+        try:
+            vmax_f = float(vmax)
+            vmin_f = float(vmin)
+        except (TypeError, ValueError):
+            return
+        try:
+            soc_f = float(soc) if soc is not None else None
+        except (TypeError, ValueError):
+            soc_f = None
+        delta_mv = (vmax_f - vmin_f) * 1000
+        await self._save_reading(
+            coordinator.host,
+            delta_mv,
+            vmax_f,
+            vmin_f,
+            soc_f,
+            "active_balance_measurement",
+            extra={"phase": phase},
+        )
 
-        coordinator.balance_hold = False
-        state.phase = "IDLE"
-        state.phase_started = None
-        await self._persist_state(host, state)
+    async def async_record_top_balance_measurement(
+        self,
+        coordinator: Any,
+        vmax: float,
+        vmin: float,
+        soc: float | None,
+        phase: str | None = None,
+    ) -> None:
+        """Record the explicit 3.55 V top-charge delta measurement."""
+        try:
+            vmax_f = float(vmax)
+            vmin_f = float(vmin)
+        except (TypeError, ValueError):
+            return
+        try:
+            soc_f = float(soc) if soc is not None else None
+        except (TypeError, ValueError):
+            soc_f = None
+        delta_mv = (vmax_f - vmin_f) * 1000
+        await self._save_reading(
+            coordinator.host,
+            delta_mv,
+            vmax_f,
+            vmin_f,
+            soc_f,
+            "top_balance_measurement",
+            coordinator,
+            extra={"phase": phase},
+        )
+
+    def get_recent_readings(self, host: str, limit: int = 10) -> list[dict]:
+        """Return the most-recent stored readings (newest last)."""
+        readings = self._data.get(host, {}).get("readings", [])
+        return list(readings[-limit:])
 
     # ------------------------------------------------------------------
     # Persistence and evaluation
@@ -262,9 +239,10 @@ class BalanceMonitor:
         delta_mv: float,
         vmax: float,
         vmin: float,
-        soc: float,
+        soc: float | None,
         reading_type: str,
         coordinator: Any = None,
+        extra: dict | None = None,
     ) -> str:
         bat = self._data.setdefault(
             host, {"readings": [], "consecutive_red": 0}
@@ -277,15 +255,17 @@ class BalanceMonitor:
             "soc": soc,
             "type": reading_type,
         }
+        if extra:
+            entry.update({k: v for k, v in extra.items() if v is not None})
         bat["readings"].append(entry)
         bat["readings"] = bat["readings"][-BALANCE_HISTORY_MAX:]
 
-        status = "unknown"
-        if reading_type in ("formal", "formal_followup") and coordinator is not None:
+        status = self._status_for_delta(delta_mv)
+        if reading_type == "top_balance_measurement" and coordinator is not None:
             status = self._evaluate(host, delta_mv, bat, coordinator)
 
         trend = self._trend(host)
-        if reading_type in ("formal", "formal_followup") and coordinator is not None:
+        if reading_type == "top_balance_measurement" and coordinator is not None:
             self._check_trend_alert(host, coordinator.name, trend)
 
         await self._store.async_save(self._data)
@@ -311,8 +291,7 @@ class BalanceMonitor:
                 msg = f"Delta: {delta_mv:.0f} mV. High cell imbalance detected."
             else:
                 msg = (
-                    f"Delta: {delta_mv:.0f} mV. Moderate imbalance. "
-                    "Battery will rest 2.5 h for passive balancing."
+                    f"Delta: {delta_mv:.0f} mV. Moderate imbalance detected."
                 )
             self._hass.async_create_task(
                 self._notify(
@@ -336,13 +315,16 @@ class BalanceMonitor:
 
     def _trend(self, host: str) -> dict:
         readings = self._data.get(host, {}).get("readings", [])
-        formal = [r for r in readings if r.get("type") in ("formal", "formal_followup")]
-        if len(formal) < 2:
+        delta_readings = [r for r in readings if r.get("delta_mV") is not None]
+        if not delta_readings:
             return {"trend": "unknown", "avg_4w": None}
 
-        last4 = formal[-4:]
+        last4 = delta_readings[-4:]
         values = [r["delta_mV"] for r in last4]
         avg = sum(values) / len(values)
+        if len(values) < 2:
+            return {"trend": "unknown", "avg_4w": round(avg, 1), "slope": 0.0}
+
         slope = (values[-1] - values[0]) / max(len(values) - 1, 1)
 
         if slope > 2:
@@ -394,8 +376,8 @@ class BalanceMonitor:
     def get_initial_state(self, host: str) -> dict:
         """Return state derived from store — used by sensors at startup."""
         readings = self._data.get(host, {}).get("readings", [])
-        formal = [r for r in readings if r.get("type") in ("formal", "formal_followup")]
-        if not formal:
+        delta_readings = [r for r in readings if r.get("delta_mV") is not None]
+        if not delta_readings:
             return {
                 "delta_mV": None,
                 "status": "unknown",
@@ -403,7 +385,7 @@ class BalanceMonitor:
                 "avg_4w": None,
                 "last_ts": None,
             }
-        last = formal[-1]
+        last = delta_readings[-1]
         trend = self._trend(host)
         return {
             "delta_mV": last["delta_mV"],
@@ -416,33 +398,6 @@ class BalanceMonitor:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-
-    def _is_weekly_charge_day(self) -> bool:
-        ctrl = self._controller
-        if not getattr(ctrl, "weekly_full_charge_enabled", False):
-            return False
-        if getattr(ctrl, "_force_full_charge", False):
-            return True
-        from datetime import datetime as _dt
-        return _dt.now().weekday() == WEEKDAY_MAP.get(ctrl.weekly_full_charge_day, -1)
-
-    def _read_recently(
-        self,
-        host: str,
-        hours: float,
-        types: tuple[str, ...] = ("formal", "formal_followup"),
-    ) -> bool:
-        readings = self._data.get(host, {}).get("readings", [])
-        matching = [r for r in readings if r.get("type") in types]
-        if not matching:
-            return False
-        try:
-            last_ts = datetime.fromisoformat(matching[-1]["ts"])
-            if last_ts.tzinfo is None:
-                last_ts = last_ts.replace(tzinfo=timezone.utc)
-            return (datetime.now(timezone.utc) - last_ts).total_seconds() < hours * 3600
-        except (ValueError, KeyError):
-            return False
 
     def _status_for_delta(self, delta_mv: float) -> str:
         if delta_mv < BALANCE_THRESHOLD_YELLOW:

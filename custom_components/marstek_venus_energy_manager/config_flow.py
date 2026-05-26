@@ -38,7 +38,6 @@ from .const import (
     CONF_WEEKLY_FULL_CHARGE_DAY,
     CONF_ENABLE_WEEKLY_FULL_CHARGE_DELAY,
     CONF_ENABLE_BALANCE_MONITOR,
-    DEFAULT_ENABLE_BALANCE_MONITOR,
     CONF_ENABLE_CHARGE_DELAY,
     CONF_DELAY_SAFETY_MARGIN_MIN,
     DEFAULT_DELAY_SAFETY_MARGIN_MIN,
@@ -90,9 +89,13 @@ from .const import (
     PRICE_INTEGRATION_NORDPOOL,
     PRICE_INTEGRATION_PVPC,
     PRICE_INTEGRATION_CKW,
+    PRICE_INTEGRATION_EPEX,
+    PRICE_INTEGRATION_ENTSOE,
     CONF_METER_INVERTED,
     CONF_PREDICTIVE_SAFETY_MARGIN_KWH,
     DEFAULT_PREDICTIVE_SAFETY_MARGIN_KWH,
+    CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
+    DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
 )
 from .modbus_client import MarstekModbusClient
 
@@ -314,6 +317,10 @@ class MarstekVenusConfigFlow(ConfigFlow, domain=DOMAIN):
             merged["enable_charge_hysteresis"] = user_input["enable_charge_hysteresis"]
             merged["charge_hysteresis_percent"] = int(user_input.get("charge_hysteresis_percent", 5))
             merged["backup_offgrid_threshold"] = int(user_input.get("backup_offgrid_threshold", 50))
+            merged[CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED] = user_input.get(
+                CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
+                DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
+            )
             self.battery_configs.append(merged)
             self.battery_index += 1
 
@@ -339,6 +346,7 @@ class MarstekVenusConfigFlow(ConfigFlow, domain=DOMAIN):
                         NumberSelector(NumberSelectorConfig(min=5, max=50, step=1, mode=NumberSelectorMode.SLIDER)),
                     vol.Required("backup_offgrid_threshold", default=50):
                         NumberSelector(NumberSelectorConfig(min=0, max=500, step=10, unit_of_measurement="W", mode=NumberSelectorMode.SLIDER)),
+                    vol.Required(CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED, default=DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED): bool,
                 }
             ),
             description_placeholders={"battery_num": str(battery_num)},
@@ -704,6 +712,14 @@ class MarstekVenusConfigFlow(ConfigFlow, domain=DOMAIN):
                         prices = attrs.get("prices")
                         if not prices or not isinstance(prices, (list, tuple)) or len(prices) == 0:
                             errors[CONF_PRICE_SENSOR] = "no_price_data"
+                    elif integration_type == PRICE_INTEGRATION_EPEX:
+                        data = attrs.get("data")
+                        if not data or not isinstance(data, (list, tuple)) or len(data) == 0:
+                            errors[CONF_PRICE_SENSOR] = "no_price_data"
+                    elif integration_type == PRICE_INTEGRATION_ENTSOE:
+                        prices = attrs.get("prices_today")
+                        if not prices or not isinstance(prices, (list, tuple)) or len(prices) == 0:
+                            errors[CONF_PRICE_SENSOR] = "no_price_data"
                     else:  # Nordpool
                         if "raw_today" not in attrs:
                             errors[CONF_PRICE_SENSOR] = "no_price_data"
@@ -750,9 +766,11 @@ class MarstekVenusConfigFlow(ConfigFlow, domain=DOMAIN):
                             PRICE_INTEGRATION_NORDPOOL,
                             PRICE_INTEGRATION_PVPC,
                             PRICE_INTEGRATION_CKW,
+                            PRICE_INTEGRATION_EPEX,
+                            PRICE_INTEGRATION_ENTSOE,
                         ],
                         translation_key="price_integration_type",
-                        mode=SelectSelectorMode.LIST,
+                        mode=SelectSelectorMode.DROPDOWN,
                     )
                 ),
             vol.Required(CONF_PRICE_SENSOR):
@@ -884,7 +902,7 @@ class MarstekVenusConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self.config_data[CONF_ENABLE_WEEKLY_FULL_CHARGE] = True
             self.config_data[CONF_WEEKLY_FULL_CHARGE_DAY] = user_input["weekly_full_charge_day"]
-            self.config_data[CONF_ENABLE_BALANCE_MONITOR] = user_input.get(CONF_ENABLE_BALANCE_MONITOR, DEFAULT_ENABLE_BALANCE_MONITOR)
+            self.config_data[CONF_ENABLE_BALANCE_MONITOR] = True
             return await self.async_step_charge_delay()
 
         return self.async_show_form(
@@ -899,7 +917,6 @@ class MarstekVenusConfigFlow(ConfigFlow, domain=DOMAIN):
                                 mode=SelectSelectorMode.DROPDOWN,
                             )
                         ),
-                    vol.Required(CONF_ENABLE_BALANCE_MONITOR, default=DEFAULT_ENABLE_BALANCE_MONITOR): bool,
                 }
             ),
         )
@@ -1167,6 +1184,7 @@ class MarstekVenusConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.config_data[CONF_ENABLE_SYSTEM_POWER_LIMITS] = DEFAULT_ENABLE_SYSTEM_POWER_LIMITS
                 self.config_data[CONF_SYSTEM_MAX_CHARGE_POWER] = DEFAULT_SYSTEM_MAX_CHARGE_POWER
                 self.config_data[CONF_SYSTEM_MAX_DISCHARGE_POWER] = DEFAULT_SYSTEM_MAX_DISCHARGE_POWER
+                self.config_data[CONF_ENABLE_BALANCE_MONITOR] = True
                 return self.async_create_entry(
                     title="Marstek Venus Energy Manager", data=self.config_data
                 )
@@ -1203,6 +1221,7 @@ class MarstekVenusConfigFlow(ConfigFlow, domain=DOMAIN):
                 user_input["system_max_discharge_power"] if enable_system_limits
                 else DEFAULT_SYSTEM_MAX_DISCHARGE_POWER
             )
+            self.config_data[CONF_ENABLE_BALANCE_MONITOR] = True
             return self.async_create_entry(
                 title="Marstek Venus Energy Manager", data=self.config_data
             )
@@ -1390,6 +1409,7 @@ class OptionsFlowHandler(OptionsFlow):
         """Merge config_data into existing entry data, save, and reload."""
         new_data = dict(self.config_entry.data)
         new_data.update(self.config_data)
+        new_data[CONF_ENABLE_BALANCE_MONITOR] = True
         self.hass.config_entries.async_update_entry(
             self.config_entry, data=new_data
         )
@@ -1587,6 +1607,10 @@ class OptionsFlowHandler(OptionsFlow):
                 merged["enable_charge_hysteresis"] = user_input["enable_charge_hysteresis"]
                 merged["charge_hysteresis_percent"] = int(user_input.get("charge_hysteresis_percent", 5))
                 merged["backup_offgrid_threshold"] = int(user_input.get("backup_offgrid_threshold", 50))
+                merged[CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED] = user_input.get(
+                    CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
+                    DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
+                )
                 self.battery_configs.append(merged)
                 self.battery_index += 1
 
@@ -1606,6 +1630,10 @@ class OptionsFlowHandler(OptionsFlow):
                     "enable_charge_hysteresis": current_battery.get("enable_charge_hysteresis", False),
                     "charge_hysteresis_percent": current_battery.get("charge_hysteresis_percent", 5),
                     "backup_offgrid_threshold": current_battery.get("backup_offgrid_threshold", 50),
+                    CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED: current_battery.get(
+                        CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
+                        DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
+                    ),
                 }
             else:
                 defaults = {
@@ -1616,6 +1644,7 @@ class OptionsFlowHandler(OptionsFlow):
                     "enable_charge_hysteresis": False,
                     "charge_hysteresis_percent": 5,
                     "backup_offgrid_threshold": 50,
+                    CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED: DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
                 }
         except Exception as e:
             _LOGGER.error("Error in options flow battery_limits step: %s", e, exc_info=True)
@@ -1638,6 +1667,7 @@ class OptionsFlowHandler(OptionsFlow):
                         NumberSelector(NumberSelectorConfig(min=5, max=50, step=1, mode=NumberSelectorMode.SLIDER)),
                     vol.Required("backup_offgrid_threshold", default=defaults["backup_offgrid_threshold"]):
                         NumberSelector(NumberSelectorConfig(min=0, max=500, step=10, unit_of_measurement="W", mode=NumberSelectorMode.SLIDER)),
+                    vol.Required(CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED, default=defaults[CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED]): bool,
                 }
             ),
             description_placeholders={"battery_num": str(battery_num)},
@@ -2061,6 +2091,14 @@ class OptionsFlowHandler(OptionsFlow):
                         prices = attrs.get("prices")
                         if not prices or not isinstance(prices, (list, tuple)) or len(prices) == 0:
                             errors[CONF_PRICE_SENSOR] = "no_price_data"
+                    elif integration_type == PRICE_INTEGRATION_EPEX:
+                        data = attrs.get("data")
+                        if not data or not isinstance(data, (list, tuple)) or len(data) == 0:
+                            errors[CONF_PRICE_SENSOR] = "no_price_data"
+                    elif integration_type == PRICE_INTEGRATION_ENTSOE:
+                        prices = attrs.get("prices_today")
+                        if not prices or not isinstance(prices, (list, tuple)) or len(prices) == 0:
+                            errors[CONF_PRICE_SENSOR] = "no_price_data"
                     else:  # Nordpool
                         if "raw_today" not in attrs:
                             errors[CONF_PRICE_SENSOR] = "no_price_data"
@@ -2113,9 +2151,11 @@ class OptionsFlowHandler(OptionsFlow):
                             PRICE_INTEGRATION_NORDPOOL,
                             PRICE_INTEGRATION_PVPC,
                             PRICE_INTEGRATION_CKW,
+                            PRICE_INTEGRATION_EPEX,
+                            PRICE_INTEGRATION_ENTSOE,
                         ],
                         translation_key="price_integration_type",
-                        mode=SelectSelectorMode.LIST,
+                        mode=SelectSelectorMode.DROPDOWN,
                     )
                 ),
             vol.Required(CONF_PRICE_SENSOR, default=default_sensor if default_sensor else vol.UNDEFINED):
@@ -2266,12 +2306,10 @@ class OptionsFlowHandler(OptionsFlow):
         """Configure weekly full charge day in options flow."""
         existing_config = self.config_entry.data
         current_day = existing_config.get(CONF_WEEKLY_FULL_CHARGE_DAY, "sun")
-        current_balance = existing_config.get(CONF_ENABLE_BALANCE_MONITOR, DEFAULT_ENABLE_BALANCE_MONITOR)
-
         if user_input is not None:
             self.config_data[CONF_ENABLE_WEEKLY_FULL_CHARGE] = True
             self.config_data[CONF_WEEKLY_FULL_CHARGE_DAY] = user_input["weekly_full_charge_day"]
-            self.config_data[CONF_ENABLE_BALANCE_MONITOR] = user_input.get(CONF_ENABLE_BALANCE_MONITOR, DEFAULT_ENABLE_BALANCE_MONITOR)
+            self.config_data[CONF_ENABLE_BALANCE_MONITOR] = True
             return await self._save_and_finish()
 
         return self.async_show_form(
@@ -2286,7 +2324,6 @@ class OptionsFlowHandler(OptionsFlow):
                                 mode=SelectSelectorMode.DROPDOWN,
                             )
                         ),
-                    vol.Required(CONF_ENABLE_BALANCE_MONITOR, default=current_balance): bool,
                 }
             ),
         )

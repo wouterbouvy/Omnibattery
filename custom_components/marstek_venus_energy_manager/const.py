@@ -42,7 +42,7 @@ MULTI_BATTERY_MIN_ACTIVATION        = 0.50   # floor: never activate below this 
 MULTI_BATTERY_MAX_ACTIVATION        = 0.95
 # Keep additional batteries active long enough to avoid pulsing when bursty loads
 # repeatedly cross the split-load threshold. Refreshed while the split condition holds.
-MULTI_BATTERY_SELECTION_HOLD_CYCLES = 48      # ~2 min at the normal 2.5 s loop
+MULTI_BATTERY_SELECTION_HOLD_SECONDS = 120
 
 # Version-specific register map for control operations
 # Maps logical register names to physical addresses per battery version
@@ -332,7 +332,7 @@ SENSOR_DEFINITIONS = [
         "device_class": "voltage",
         "state_class": "measurement",
         "key": "max_cell_voltage",
-        "enabled_by_default": False,
+        "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
         "scan_interval": "medium"
@@ -346,7 +346,7 @@ SENSOR_DEFINITIONS = [
         "device_class": "voltage",
         "state_class": "measurement",
         "key": "min_cell_voltage",
-        "enabled_by_default": False,
+        "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
         "scan_interval": "medium"
@@ -907,7 +907,7 @@ SENSOR_DEFINITIONS_V3 = [
         "device_class": "voltage",
         "state_class": "measurement",
         "key": "max_cell_voltage",
-        "enabled_by_default": False,
+        "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
         "scan_interval": "medium",
@@ -920,7 +920,7 @@ SENSOR_DEFINITIONS_V3 = [
         "device_class": "voltage",
         "state_class": "measurement",
         "key": "min_cell_voltage",
-        "enabled_by_default": False,
+        "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
         "scan_interval": "medium",
@@ -1493,7 +1493,7 @@ SENSOR_DEFINITIONS_VA = [
         "device_class": "voltage",
         "state_class": "measurement",
         "key": "max_cell_voltage",
-        "enabled_by_default": False,
+        "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
         "scan_interval": "medium",
@@ -1506,7 +1506,7 @@ SENSOR_DEFINITIONS_VA = [
         "device_class": "voltage",
         "state_class": "measurement",
         "key": "min_cell_voltage",
-        "enabled_by_default": False,
+        "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
         "scan_interval": "medium",
@@ -1617,7 +1617,7 @@ NUMBER_DEFINITIONS_VA = [
         "enabled_by_default": False,
         "icon": "mdi:battery-arrow-up-outline",
         "min": 0,
-        "max": 1200,
+        "max": 1500,
         "step": 50,
         "unit": "W",
         "data_type": "uint16",
@@ -1630,7 +1630,7 @@ NUMBER_DEFINITIONS_VA = [
         "enabled_by_default": False,
         "icon": "mdi:battery-arrow-down-outline",
         "min": 0,
-        "max": 1200,
+        "max": 1500,
         "step": 50,
         "unit": "W",
         "data_type": "uint16",
@@ -1643,7 +1643,7 @@ NUMBER_DEFINITIONS_VA = [
         "enabled_by_default": False,
         "icon": "mdi:battery-arrow-up-outline",
         "min": 0,
-        "max": 1200,
+        "max": 1500,
         "step": 50,
         "unit": "W",
         "data_type": "uint16",
@@ -1656,7 +1656,7 @@ NUMBER_DEFINITIONS_VA = [
         "enabled_by_default": False,
         "icon": "mdi:battery-arrow-down-outline",
         "min": 0,
-        "max": 1200,
+        "max": 1500,
         "step": 50,
         "unit": "W",
         "data_type": "uint16",
@@ -1816,7 +1816,6 @@ CONF_ENABLE_WEEKLY_FULL_CHARGE_DELAY = "enable_weekly_full_charge_delay"
 CONF_WEEKLY_FULL_CHARGE_SKIP_DELAY = "weekly_full_charge_skip_delay"
 DEFAULT_WEEKLY_FULL_CHARGE_SKIP_DELAY = False
 CONF_ENABLE_BALANCE_MONITOR = "enable_balance_monitor"
-DEFAULT_ENABLE_BALANCE_MONITOR = False
 
 # Cell Balance Monitor
 BALANCE_STORAGE_KEY = "balance_history"
@@ -1824,16 +1823,38 @@ BALANCE_STORAGE_VERSION = 1
 BALANCE_THRESHOLD_YELLOW = 50    # mV — above this: yellow
 BALANCE_THRESHOLD_ORANGE = 100   # mV — above this: orange
 BALANCE_THRESHOLD_RED = 150      # mV — above this: red
-BALANCE_OCV_WAIT_SECONDS = 900   # 15 min rest before reading
-BALANCE_ORANGE_HOLD_SECONDS = 9000  # 2.5 h passive balancing hold
-BALANCE_COOLDOWN_HOURS = 12      # min hours between formal readings
-BALANCE_OPPORTUNISTIC_COOLDOWN_HOURS = 24
-BALANCE_POWER_STABLE_POLLS = 5   # consecutive polls < 50 W to confirm rest
-BALANCE_POWER_REST_THRESHOLD_W = 50
-BALANCE_VOLTAGE_SETTLING_THRESHOLD_V = 0.005  # vmax must be falling < 5 mV/poll
 BALANCE_HISTORY_MAX = 52         # ~1 year of weekly readings
 BALANCE_RED_CONSECUTIVE_ALERT = 2
 BALANCE_TREND_ALERT_AVG_MV = 75.0   # avg must exceed this to fire a rising-trend alert
+
+# Optional normal full-charge protection.
+# When enabled per battery, slow charging only while the target is 100% and
+# cells enter the top voltage range. This is voltage-only; SOC is intentionally
+# ignored because some batteries report it unreliably near the top.
+NORMAL_BALANCE_TAPER_CELL_VOLTAGE = 3.48
+NORMAL_BALANCE_PAUSE_CELL_VOLTAGE = 3.58
+NORMAL_BALANCE_CHARGE_POWER_W = 95
+NORMAL_BALANCE_MEASURE_WAIT_SECONDS = 60
+
+# Active balance mode.
+# Once the battery has reached the top, keep the cells in the balancing window
+# with gentle charge/discharge micro-cycles instead of only resting at 100% SOC.
+ACTIVE_BALANCE_CHARGE_RESUME_CELL_VOLTAGE = 3.49
+ACTIVE_BALANCE_CHARGE_STOP_CELL_VOLTAGE = 3.58
+ACTIVE_BALANCE_DISCHARGE_STOP_CELL_VOLTAGE = 3.49
+ACTIVE_BALANCE_FINAL_DISCHARGE_STOP_CELL_VOLTAGE = 3.48
+ACTIVE_BALANCE_MEASURE_WAIT_SECONDS = 60
+ACTIVE_BALANCE_ADAPTIVE_RESUME_STEP_V = 0.01
+ACTIVE_BALANCE_ADAPTIVE_MIN_RESUME_CELL_VOLTAGE = 3.40
+ACTIVE_BALANCE_CHARGE_POWER_W = 95
+ACTIVE_BALANCE_DISCHARGE_POWER_W = 25
+ACTIVE_BALANCE_MODE_TARGET_DELTA_V = 0.03
+
+# Per-battery scheduled active balance mode.
+CONF_ACTIVE_BALANCE_MODE_ENABLED = "active_balance_mode_enabled"
+CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED = "full_charge_voltage_taper_enabled"
+DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED = True
+
 CONF_ENABLE_CHARGE_DELAY = "enable_charge_delay"
 CONF_DELAY_SAFETY_MARGIN_MIN = "delay_safety_margin_min"
 DEFAULT_DELAY_SAFETY_MARGIN_MIN = 60
@@ -1940,6 +1961,8 @@ CONF_RT_PRICE_DISCHARGE_CONTROL = "rt_price_discharge_control"
 PRICE_INTEGRATION_NORDPOOL = "nordpool"
 PRICE_INTEGRATION_PVPC = "pvpc"
 PRICE_INTEGRATION_CKW = "ckw"
+PRICE_INTEGRATION_EPEX = "epex"
+PRICE_INTEGRATION_ENTSOE = "entsoe"
 
 # Configuration Number Definitions (for config entities exposed in the UI)
 CONFIG_NUMBER_DEFINITIONS = [

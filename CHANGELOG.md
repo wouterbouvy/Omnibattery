@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.8.3] - 2026-05-26
+
+### Added
+- **Active balance mode**: Added a per-battery active balancing mode that charges at 95 W to 3.58 V, waits 60 s to measure `delta_V`, cycles with 25 W discharge to 3.48 V, repeats until `delta_V <= 0.03 V`, persists its phase across restarts, and performs a final 25 W discharge to 3.42 V before completing.
+- **Dynamic Pricing: EPEX Spot support (e.g. aWATTar)**: New price integration option for sensors that expose hourly prices under a `data` attribute as a list of `{start_time, end_time, price_per_kwh}` entries (€/kWh). Reuses the same cheap-hour scheduling and price-based discharge gating as the existing Nordpool/PVPC/CKW integrations.
+- **Dynamic Pricing: ENTSO-e Transparency Platform support**: New price integration option for sensors that expose prices under `prices_today` / `prices_tomorrow` attributes as a list of `{time, price}` entries (€/kWh, ISO 8601 timestamps with timezone). Supports both hourly and 15-minute slots — slot end times are inferred from the next entry's start. Reuses the same cheap-hour scheduling and price-based discharge gating as the other price integrations.
+
+### Changed
+- **Charge 100% revamped**: Normal 100% charging now uses a voltage-only profile. It throttles to 95 W from `max_cell_voltage >= 3.48 V`, then stops charging at 3.58 V and waits 60 s to record the `delta_V` reading. Charging is left stopped at that voltage and the normal SOC/charge logic decides when charging is allowed again — no forced discharge in this path.
+- **Dynamic Pricing: integration selector switched to dropdown**: The price integration picker in the setup and options flows now renders as a compact dropdown instead of a vertical radio list, keeping the form short as more providers are added.
+- **Balance sensor names regrouped under a `Balance - …` prefix**: The five cell-balance diagnostic sensors (`Cell Delta`, `Balance Status`, `Balance Trend`, `Last Balance Reading`, `Delta Average (4 readings)`) were renamed across all six translation files so they sort together in the HA UI: `Balance - Cell Delta (at 100%)`, `Balance - Status`, `Balance - Trend`, `Balance - Last Reading`, and `Balance - Delta Average (4 readings)`. `Cell Delta` also gained the `(at 100%)` qualifier to make explicit that the reading is captured at full charge. Translation keys and `entity_id`s are unchanged.
+
+### Fixed
+- **Venus A manual-mode power entities still capped at 1200 W**: `MAX_POWER_BY_VERSION["vA"]` was already raised to 1500 W for the config flow and PD calculations, but the `set_charge_power`, `set_discharge_power`, `max_charge_power`, and `max_discharge_power` number entities in `NUMBER_DEFINITIONS_VA` were still hard-capped at 1200 W. Raised to 1500 W so the manual-mode sliders match the configured hardware limit.
+- **System SOC weighted by battery capacity**: The `System SOC` aggregate sensor now weights each battery's SOC by its `battery_total_energy`, so mixed-capacity systems report the real stored-energy percentage instead of a simple average across batteries.
+- **Disconnected batteries reported in manual mode**: The Non-responsive Batteries diagnostic sensor now also reports batteries that become unreachable through Modbus polling failures, so unplugging a battery's Ethernet/Modbus adapter is surfaced even while Manual Mode skips automatic power commands.
+- **Multi-battery split-load hold uses wall-clock time**: The split-load minimum runtime now expires after 120 seconds of real time instead of 48 PD write cycles. If the PD controller remains inside deadband when the hold expires, it now performs a one-time rebalance to release the extra battery instead of leaving it latched until the next correction outside deadband.
+- **Single-battery idle state after zero-power selection**: The load-sharing selector now clears active battery state and split-load hold counters before the single-battery fast path when requested power is 0 W. This prevents one-battery systems from retaining load-sharing state intended for multi-battery split holds while the controller is intentionally idle.
+
 ## [1.8.2] - 2026-05-15
 
 ### Added

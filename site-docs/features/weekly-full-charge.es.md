@@ -1,24 +1,29 @@
 # Carga semanal completa
 
-Carga las baterías al **100 % una vez por semana** para equilibrar las celdas y mantener la salud de la batería (cell balancing).
+Carga las baterías al **100 % una vez por semana** para que el pack llegue a la ventana superior de balanceo LFP y la integración pueda medir el desbalanceo de celdas en condiciones repetibles.
 
 ## Comportamiento
 
-1. El día configurado de la semana, si el SOC máximo habitual es inferior al 100 %, la integración eleva temporalmente el límite de corte de carga al 100 %.
-2. La batería carga hasta el 100 % de SOC.
-3. Una vez alcanzado el 100 %, el límite de SOC máximo vuelve automáticamente al valor configurado por el usuario.
+1. El día configurado de la semana, si el SOC máximo habitual es inferior al 100 %, la integración eleva temporalmente el límite de corte de carga de la batería al 100 %.
+2. La batería carga hasta que entra la reducción por voltaje en la parte alta.
+3. Desde `max_cell_voltage >= 3.48 V`, la carga se limita a 95 W.
+4. En `max_cell_voltage >= 3.58 V`, la carga se detiene y la integración espera 60 segundos.
+5. Tras la espera, el monitor de equilibrio registra `delta_mV = (Vmax - Vmin) * 1000`.
+6. Tras finalizar, el límite de SOC máximo vuelve automáticamente al valor configurado por el usuario.
+
+La carga semanal completa usa el mismo perfil de voltaje que una batería configurada normalmente con `max_soc = 100`. La función semanal solo eleva el objetivo a 100 %; no usa un algoritmo de balanceo distinto.
 
 ## Monitor de equilibrio de celdas
 
-El paso de configuración de carga semanal completa incluye una opción para activar el **monitor de equilibrio de celdas**. Cuando está activo, la integración mide la diferencia de tensión entre la celda más y menos cargada después de cada carga completa, para hacer seguimiento de la salud de la batería a lo largo del tiempo.
+El **monitor de equilibrio de celdas** está siempre activo. Registra la diferencia de tensión entre la celda más alta y la más baja tras cada medición en tensión alta, y mantiene actualizados los sensores, la tendencia y las alertas.
 
 Consulta [Monitor de equilibrio de celdas](cell-balance-monitor.md) para más detalles.
 
 ## Interacción con el retraso de carga solar
 
-Si el [retraso de carga solar](solar-charge-delay.md) está activo, la carga semanal se postpone mientras la producción solar prevista sea suficiente para alcanzar el 100 %. La batería solo empieza a cargar desde la red cuando el modelo solar determina que el sol no completará la carga.
+Si el [retraso de carga solar](solar-charge-delay.md) está activo, la carga semanal puede aplazarse mientras la producción solar prevista sea suficiente para alcanzar el 100 %.
 
-Cuando el monitor de equilibrio de celdas está activado, el retraso de carga solar se omite automáticamente el día de la carga semanal para que la batería permanezca en flotación mientras haya sol disponible, dando más tiempo a las celdas para equilibrarse pasivamente antes de tomar la lectura OCV.
+Cuando la carga semanal completa está activa, la integración puede omitir el retraso para que la batería alcance el punto de medición en tensión alta y la lectura de balance no se pierda.
 
 ## Registro Modbus implicado
 

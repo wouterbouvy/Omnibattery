@@ -50,7 +50,8 @@
           "min_soc": "Minimaler SOC (%)",
           "enable_charge_hysteresis": "Ladehysterese aktivieren",
           "charge_hysteresis_percent": "Hysterese-Prozentsatz (%)",
-          "backup_offgrid_threshold": "Schwellenwert für Backup-Offgrid-Last (W)"
+          "backup_offgrid_threshold": "Schwellenwert für Backup-Offgrid-Last (W)",
+          "full_charge_voltage_taper_enabled": "100%-Ladung per Zellspannung reduzieren"
         },
         "data_description": {
           "max_charge_power": "Maximal zulässige Leistung zum Laden der Batterie",
@@ -59,7 +60,8 @@
           "min_soc": "Minimaler Ladezustand - Batterie entlädt nicht unter diesen Wert",
           "enable_charge_hysteresis": "Verhindert das Laden der Batterie, wenn der SOC nahe am Maximum ist",
           "charge_hysteresis_percent": "Batterie lädt nicht, bis der SOC auf (max_soc - Hysterese) fällt. Bsp.: Max SOC 100% mit 5% Hysterese = kein Laden bis 95%",
-          "backup_offgrid_threshold": "Eine Offgrid-Last über diesem Wert wird als aktives Backup-Ereignis behandelt und schließt die Batterie aus der PD-Regelung aus. Erhöhen, wenn dauerhafte Lasten (Router, Kameras) am Offgrid-Port angeschlossen sind."
+          "backup_offgrid_threshold": "Eine Offgrid-Last über diesem Wert wird als aktives Backup-Ereignis behandelt und schließt die Batterie aus der PD-Regelung aus. Erhöhen, wenn dauerhafte Lasten (Router, Kameras) am Offgrid-Port angeschlossen sind.",
+          "full_charge_voltage_taper_enabled": "Wenn das Ziel 100% ist, wird die Ladung ab 3.48 V maximaler Zellspannung auf 95 W begrenzt und bei 3.58 V gestoppt, um den Zellversatz nach 60 Sekunden zu messen."
         }
       },
       "time_slots": {
@@ -216,12 +218,10 @@
         "title": "Konfiguration der wöchentlichen Vollladung",
         "description": "Wählen Sie den Wochentag aus, an dem die Batterien zur Zellenbalancierung auf 100% geladen werden sollen. Nach Erreichen von 100% kehrt das System zu Ihrem konfigurierten maximalen Ladelimit zurück.",
         "data": {
-          "weekly_full_charge_day": "Wochentag",
-          "enable_balance_monitor": "Zellenbalance-Monitor aktivieren"
+          "weekly_full_charge_day": "Wochentag"
         },
         "data_description": {
-          "weekly_full_charge_day": "Tag, an dem die Batterien unabhängig vom konfigurierten maximalen SOC auf 100% geladen werden. Dies hilft beim Ausgleich der Batteriezellen.",
-          "enable_balance_monitor": "Wenn aktiviert, analysiert das System das Zellenspannungsgleichgewicht nach jeder Vollladung und gibt Warnungen aus, wenn ein Ungleichgewicht festgestellt wird. Außerdem wird die Solarladeverzögerung an diesem Tag übersprungen, damit die Batterie 100% erreicht und bei Sonnenschein in der Erhaltungsladung bleibt."
+          "weekly_full_charge_day": "Tag, an dem die Batterien unabhängig vom konfigurierten maximalen SOC auf 100% geladen werden. Dies hilft beim Ausgleich der Batteriezellen."
         }
       },
       "charge_delay": {
@@ -333,7 +333,7 @@
       "invalid_unit": "Solarprognose-Sensor muss 'kWh' oder 'Wh' als Einheit haben.",
       "overlapping_slots": "Dieses Zeitfenster überschneidet sich mit einem bestehenden. Passen Sie die Zeiten oder Tage an.",
       "midnight_crossing": "Die Startzeit muss vor der Endzeit liegen. Für Nachtperioden erstellen Sie zwei separate Zeitfenster (z.B. 22:00-23:59 und 00:00-06:00).",
-      "no_price_data": "Keine Preisdaten vom Sensor verfügbar. Nordpool: benötigt `raw_today`. PVPC: benötigt `price_00h` … `price_23h`. CKW: benötigt das Attribut `prices` mit einer Slot-Liste."
+      "no_price_data": "Keine Preisdaten vom Sensor verfügbar. Nordpool: benötigt `raw_today`. PVPC: benötigt `price_00h` … `price_23h`. CKW: benötigt das Attribut `prices` mit einer Slot-Liste. EPEX: benötigt das Attribut `data` mit einer Slot-Liste. ENTSO-e: benötigt das Attribut `prices_today` mit einer Slot-Liste."
     },
     "abort": {
       "already_configured": "Diese Integration ist bereits konfiguriert."
@@ -406,7 +406,8 @@
           "min_soc": "Minimaler SOC (%)",
           "enable_charge_hysteresis": "Ladehysterese aktivieren",
           "charge_hysteresis_percent": "Hysterese-Prozentsatz (%)",
-          "backup_offgrid_threshold": "Schwellenwert für Backup-Offgrid-Last (W)"
+          "backup_offgrid_threshold": "Schwellenwert für Backup-Offgrid-Last (W)",
+          "full_charge_voltage_taper_enabled": "100%-Ladung per Zellspannung reduzieren"
         },
         "data_description": {
           "max_charge_power": "Maximal zulässige Leistung zum Laden der Batterie",
@@ -415,7 +416,8 @@
           "min_soc": "Minimaler Ladezustand",
           "enable_charge_hysteresis": "Verhindert das Laden der Batterie, wenn der SOC nahe am Maximum ist",
           "charge_hysteresis_percent": "Batterie lädt nicht, bis der SOC auf (max_soc - Hysterese) fällt. Bsp.: Max SOC 100% mit 5% Hysterese = kein Laden bis 95%",
-          "backup_offgrid_threshold": "Eine Offgrid-Last über diesem Wert wird als aktives Backup-Ereignis behandelt und schließt die Batterie aus der PD-Regelung aus. Erhöhen, wenn dauerhafte Lasten (Router, Kameras) am Offgrid-Port angeschlossen sind."
+          "backup_offgrid_threshold": "Eine Offgrid-Last über diesem Wert wird als aktives Backup-Ereignis behandelt und schließt die Batterie aus der PD-Regelung aus. Erhöhen, wenn dauerhafte Lasten (Router, Kameras) am Offgrid-Port angeschlossen sind.",
+          "full_charge_voltage_taper_enabled": "Wenn das Ziel 100% ist, wird die Ladung ab 3.48 V maximaler Zellspannung auf 95 W begrenzt und bei 3.58 V gestoppt, um den Zellversatz nach 60 Sekunden zu messen."
         }
       },
       "time_slots": {
@@ -572,12 +574,10 @@
         "title": "Konfiguration der wöchentlichen Vollladung",
         "description": "Wählen Sie den Wochentag aus, an dem die Batterien zur Zellenbalancierung auf 100% geladen werden sollen. Nach Erreichen von 100% kehrt das System zu Ihrem konfigurierten maximalen Ladelimit zurück.",
         "data": {
-          "weekly_full_charge_day": "Wochentag",
-          "enable_balance_monitor": "Zellenbalance-Monitor aktivieren"
+          "weekly_full_charge_day": "Wochentag"
         },
         "data_description": {
-          "weekly_full_charge_day": "Tag, an dem die Batterien unabhängig vom konfigurierten maximalen SOC auf 100% geladen werden. Dies hilft beim Ausgleich der Batteriezellen.",
-          "enable_balance_monitor": "Wenn aktiviert, analysiert das System das Zellenspannungsgleichgewicht nach jeder Vollladung und gibt Warnungen aus, wenn ein Ungleichgewicht festgestellt wird. Außerdem wird die Solarladeverzögerung an diesem Tag übersprungen, damit die Batterie 100% erreicht und bei Sonnenschein in der Erhaltungsladung bleibt."
+          "weekly_full_charge_day": "Tag, an dem die Batterien unabhängig vom konfigurierten maximalen SOC auf 100% geladen werden. Dies hilft beim Ausgleich der Batteriezellen."
         }
       },
       "charge_delay": {
@@ -689,7 +689,7 @@
       "invalid_unit": "Solarprognose-Sensor muss 'kWh' oder 'Wh' als Einheit haben.",
       "overlapping_slots": "Dieses Zeitfenster überschneidet sich mit einem bestehenden. Passen Sie die Zeiten oder Tage an.",
       "midnight_crossing": "Die Startzeit muss vor der Endzeit liegen. Für Nachtperioden erstellen Sie zwei separate Zeitfenster (z.B. 22:00-23:59 und 00:00-06:00).",
-      "no_price_data": "Keine Preisdaten vom Sensor verfügbar. Nordpool: benötigt `raw_today`. PVPC: benötigt `price_00h` … `price_23h`. CKW: benötigt das Attribut `prices` mit einer Slot-Liste."
+      "no_price_data": "Keine Preisdaten vom Sensor verfügbar. Nordpool: benötigt `raw_today`. PVPC: benötigt `price_00h` … `price_23h`. CKW: benötigt das Attribut `prices` mit einer Slot-Liste. EPEX: benötigt das Attribut `data` mit einer Slot-Liste. ENTSO-e: benötigt das Attribut `prices_today` mit einer Slot-Liste."
     }
   },
   "selector": {
@@ -715,7 +715,9 @@
       "options": {
         "nordpool": "Nordpool",
         "pvpc": "PVPC (Spanien – ESIOS REE)",
-        "ckw": "CKW (Schweiz)"
+        "ckw": "CKW (Schweiz)",
+        "epex": "EPEX Spot (z. B. aWATTar)",
+        "entsoe": "ENTSO-e (Transparency-Plattform)"
       }
     }
   },
@@ -744,6 +746,12 @@
       },
       "battery_allow_discharge": {
         "name": "Entladen Erlauben"
+      },
+      "full_charge_voltage_taper": {
+        "name": "100%-Ladungsreduktion per Spannung"
+      },
+      "active_balance_mode": {
+        "name": "Aktiver Zellabgleich"
       },
       "automation_charging_active": {
         "name": "Laden nach externem Preis"
@@ -791,6 +799,7 @@
           "manual": "Manueller Modus",
           "grid_charging": "Laden aus dem Netz",
           "weekly_full_charge": "Wöchentliche Volladung",
+          "active_balance_mode": "Aktiver Zellabgleich",
           "charge_delayed": "Ladung verzögert",
           "waiting_for_solar": "Warten auf Solar",
           "charging_to_setpoint": "Laden bis Sollwert",
@@ -961,10 +970,10 @@
         "name": "Batteriezyklen (Berechnet)"
       },
       "cell_delta": {
-        "name": "Zellendelta"
+        "name": "Balance - Zellendelta (bei 100%)"
       },
       "balance_status": {
-        "name": "Balance-Status",
+        "name": "Balance - Status",
         "state": {
           "green": "Balanciert",
           "yellow": "Geringe Unbalance",
@@ -974,7 +983,7 @@
         }
       },
       "delta_trend": {
-        "name": "Balance-Trend",
+        "name": "Balance - Trend",
         "state": {
           "rising": "Steigend",
           "stable": "Stabil",
@@ -983,10 +992,10 @@
         }
       },
       "last_balance_read": {
-        "name": "Letzte Balance-Messung"
+        "name": "Balance - Letzte Messung"
       },
       "delta_avg_4w": {
-        "name": "Delta-Durchschnitt (4 Messungen)"
+        "name": "Balance - Delta-Durchschnitt (4 Messungen)"
       },
       "balance_neto": {
         "name": "Nettobilanz",

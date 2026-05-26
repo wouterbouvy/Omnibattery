@@ -50,7 +50,8 @@
           "min_soc": "Minimale SOC (%)",
           "enable_charge_hysteresis": "Laadhysterese inschakelen",
           "charge_hysteresis_percent": "Hysterese percentage (%)",
-          "backup_offgrid_threshold": "Drempelwaarde backup offgrid-belasting (W)"
+          "backup_offgrid_threshold": "Drempelwaarde backup offgrid-belasting (W)",
+          "full_charge_voltage_taper_enabled": "100%-lading op spanning begrenzen"
         },
         "data_description": {
           "max_charge_power": "Maximaal toegestaan vermogen om de batterij op te laden",
@@ -59,7 +60,8 @@
           "min_soc": "Minimale laadtoestand - batterij ontlaadt niet onder deze waarde",
           "enable_charge_hysteresis": "Voorkomt dat de batterij laadt wanneer SOC dicht bij het maximum is",
           "charge_hysteresis_percent": "Batterij laadt niet tot SOC daalt naar (max_soc - hysterese). Bijv.: Max SOC 100% met 5% hysterese = geen laden tot 95%",
-          "backup_offgrid_threshold": "Een offgrid-belasting boven deze waarde wordt behandeld als een actieve back-upgebeurtenis en sluit de batterij uit van PD-regeling. Verhoog dit als er permanente lasten (router, camera's) op de offgrid-poort zijn aangesloten."
+          "backup_offgrid_threshold": "Een offgrid-belasting boven deze waarde wordt behandeld als een actieve back-upgebeurtenis en sluit de batterij uit van PD-regeling. Verhoog dit als er permanente lasten (router, camera's) op de offgrid-poort zijn aangesloten.",
+          "full_charge_voltage_taper_enabled": "Wanneer het doel 100% is, wordt laden vanaf 3.48 V maximale celspanning beperkt tot 95 W en gestopt bij 3.58 V om de onbalans na 60 seconden te meten."
         }
       },
       "time_slots": {
@@ -216,12 +218,10 @@
         "title": "Configuratie wekelijkse volledige lading",
         "description": "Selecteer de dag van de week waarop batterijen tot 100% moeten worden opgeladen voor celbalancering. Na het bereiken van 100% keert het systeem terug naar uw geconfigureerde maximale laadlimiet.",
         "data": {
-          "weekly_full_charge_day": "Dag van de week",
-          "enable_balance_monitor": "Celbalancemonitor inschakelen"
+          "weekly_full_charge_day": "Dag van de week"
         },
         "data_description": {
-          "weekly_full_charge_day": "Dag waarop batterijen tot 100% worden geladen, ongeacht de geconfigureerde maximale SOC. Dit helpt bij het balanceren van batterijcellen.",
-          "enable_balance_monitor": "Wanneer ingeschakeld, analyseert het systeem de celspanningsbalans na elke volledige lading en geeft een melding als onbalans wordt gedetecteerd. Slaat ook de zonne-oplaadvertraging over op die dag zodat de batterij 100% bereikt en in drijflading blijft zolang er zon is."
+          "weekly_full_charge_day": "Dag waarop batterijen tot 100% worden geladen, ongeacht de geconfigureerde maximale SOC. Dit helpt bij het balanceren van batterijcellen."
         }
       },
       "charge_delay": {
@@ -333,7 +333,7 @@
       "invalid_unit": "Zonnevoorspellingssensor moet 'kWh' of 'Wh' als eenheid hebben.",
       "overlapping_slots": "Dit tijdslot overlapt met een bestaand tijdslot. Pas de tijden of dagen aan.",
       "midnight_crossing": "De starttijd moet vóór de eindtijd liggen. Maak voor nachtperiodes twee aparte tijdslots aan (bijv. 22:00-23:59 en 00:00-06:00).",
-      "no_price_data": "De geselecteerde sensor heeft niet de verwachte prijsattributen. Nordpool: heeft `raw_today` nodig. PVPC: heeft `price_00h` … `price_23h` nodig. CKW: heeft het attribuut `prices` met een lijst van slots nodig."
+      "no_price_data": "De geselecteerde sensor heeft niet de verwachte prijsattributen. Nordpool: heeft `raw_today` nodig. PVPC: heeft `price_00h` … `price_23h` nodig. CKW: heeft het attribuut `prices` met een lijst van slots nodig. EPEX: heeft het attribuut `data` met een lijst van slots nodig. ENTSO-e: heeft het attribuut `prices_today` met een lijst van slots nodig."
     },
     "abort": {
       "already_configured": "Deze integratie is al geconfigureerd."
@@ -406,7 +406,8 @@
           "min_soc": "Minimale SOC (%)",
           "enable_charge_hysteresis": "Laadhysterese inschakelen",
           "charge_hysteresis_percent": "Hysterese percentage (%)",
-          "backup_offgrid_threshold": "Drempelwaarde backup offgrid-belasting (W)"
+          "backup_offgrid_threshold": "Drempelwaarde backup offgrid-belasting (W)",
+          "full_charge_voltage_taper_enabled": "100%-lading op spanning begrenzen"
         },
         "data_description": {
           "max_charge_power": "Maximaal toegestaan vermogen om de batterij op te laden",
@@ -415,7 +416,8 @@
           "min_soc": "Minimale laadtoestand",
           "enable_charge_hysteresis": "Voorkomt dat de batterij laadt wanneer SOC dicht bij het maximum is",
           "charge_hysteresis_percent": "Batterij laadt niet tot SOC daalt naar (max_soc - hysterese). Bijv.: Max SOC 100% met 5% hysterese = geen laden tot 95%",
-          "backup_offgrid_threshold": "Een offgrid-belasting boven deze waarde wordt behandeld als een actieve back-upgebeurtenis en sluit de batterij uit van PD-regeling. Verhoog dit als er permanente lasten (router, camera's) op de offgrid-poort zijn aangesloten."
+          "backup_offgrid_threshold": "Een offgrid-belasting boven deze waarde wordt behandeld als een actieve back-upgebeurtenis en sluit de batterij uit van PD-regeling. Verhoog dit als er permanente lasten (router, camera's) op de offgrid-poort zijn aangesloten.",
+          "full_charge_voltage_taper_enabled": "Wanneer het doel 100% is, wordt laden vanaf 3.48 V maximale celspanning beperkt tot 95 W en gestopt bij 3.58 V om de onbalans na 60 seconden te meten."
         }
       },
       "time_slots": {
@@ -572,12 +574,10 @@
         "title": "Configuratie wekelijkse volledige lading",
         "description": "Selecteer de dag van de week waarop batterijen tot 100% moeten worden opgeladen voor celbalancering. Na het bereiken van 100% keert het systeem terug naar uw geconfigureerde maximale laadlimiet.",
         "data": {
-          "weekly_full_charge_day": "Dag van de week",
-          "enable_balance_monitor": "Celbalancemonitor inschakelen"
+          "weekly_full_charge_day": "Dag van de week"
         },
         "data_description": {
-          "weekly_full_charge_day": "Dag waarop batterijen tot 100% worden geladen, ongeacht de geconfigureerde maximale SOC. Dit helpt bij het balanceren van batterijcellen.",
-          "enable_balance_monitor": "Wanneer ingeschakeld, analyseert het systeem de celspanningsbalans na elke volledige lading en geeft een melding als onbalans wordt gedetecteerd. Slaat ook de zonne-oplaadvertraging over op die dag zodat de batterij 100% bereikt en in drijflading blijft zolang er zon is."
+          "weekly_full_charge_day": "Dag waarop batterijen tot 100% worden geladen, ongeacht de geconfigureerde maximale SOC. Dit helpt bij het balanceren van batterijcellen."
         }
       },
       "charge_delay": {
@@ -689,7 +689,7 @@
       "invalid_unit": "Zonnevoorspellingssensor moet 'kWh' of 'Wh' als eenheid hebben.",
       "overlapping_slots": "Dit tijdslot overlapt met een bestaand tijdslot. Pas de tijden of dagen aan.",
       "midnight_crossing": "De starttijd moet vóór de eindtijd liggen. Maak voor nachtperiodes twee aparte tijdslots aan (bijv. 22:00-23:59 en 00:00-06:00).",
-      "no_price_data": "De geselecteerde sensor heeft niet de verwachte prijsattributen. Nordpool: heeft `raw_today` nodig. PVPC: heeft `price_00h` … `price_23h` nodig. CKW: heeft het attribuut `prices` met een lijst van slots nodig."
+      "no_price_data": "De geselecteerde sensor heeft niet de verwachte prijsattributen. Nordpool: heeft `raw_today` nodig. PVPC: heeft `price_00h` … `price_23h` nodig. CKW: heeft het attribuut `prices` met een lijst van slots nodig. EPEX: heeft het attribuut `data` met een lijst van slots nodig. ENTSO-e: heeft het attribuut `prices_today` met een lijst van slots nodig."
     }
   },
   "selector": {
@@ -715,7 +715,9 @@
       "options": {
         "nordpool": "Nordpool",
         "pvpc": "PVPC (Spanje – ESIOS REE)",
-        "ckw": "CKW (Zwitserland)"
+        "ckw": "CKW (Zwitserland)",
+        "epex": "EPEX Spot (bijv. aWATTar)",
+        "entsoe": "ENTSO-e (Transparency Platform)"
       }
     }
   },
@@ -744,6 +746,12 @@
       },
       "battery_allow_discharge": {
         "name": "Ontladen Toestaan"
+      },
+      "full_charge_voltage_taper": {
+        "name": "100%-Laadbegrenzing op Spanning"
+      },
+      "active_balance_mode": {
+        "name": "Actieve Celbalansmodus"
       },
       "automation_charging_active": {
         "name": "Laden op Externe Prijs"
@@ -791,6 +799,7 @@
           "manual": "Handmatige Modus",
           "grid_charging": "Laden vanuit Net",
           "weekly_full_charge": "Wekelijkse Volledige Lading",
+          "active_balance_mode": "Actieve Celbalansmodus",
           "charge_delayed": "Lading Vertraagd",
           "waiting_for_solar": "Wachten op Zon",
           "charging_to_setpoint": "Laden naar Instelpunt",
@@ -961,10 +970,10 @@
         "name": "Batterijcycli (Berekend)"
       },
       "cell_delta": {
-        "name": "Celdelta"
+        "name": "Balans - Celdelta (bij 100%)"
       },
       "balance_status": {
-        "name": "Balansstatus",
+        "name": "Balans - Status",
         "state": {
           "green": "Gebalanceerd",
           "yellow": "Geringe onbalans",
@@ -974,7 +983,7 @@
         }
       },
       "delta_trend": {
-        "name": "Balans Trend",
+        "name": "Balans - Trend",
         "state": {
           "rising": "Stijgend",
           "stable": "Stabiel",
@@ -983,10 +992,10 @@
         }
       },
       "last_balance_read": {
-        "name": "Laatste Balansmeting"
+        "name": "Balans - Laatste Meting"
       },
       "delta_avg_4w": {
-        "name": "Delta Gemiddelde (4 metingen)"
+        "name": "Balans - Delta Gemiddelde (4 metingen)"
       },
       "balance_neto": {
         "name": "Nettosaldo",

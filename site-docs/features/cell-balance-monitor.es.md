@@ -1,52 +1,166 @@
 # Monitor de equilibrio de celdas
 
-Registra la diferencia de tensión entre la celda más cargada y la menos cargada después de cada carga semanal completa, ofreciendo una visión a largo plazo del estado de equilibrio de las celdas de la batería.
+Registra la diferencia de tensión entre la celda más alta y la más baja en la parte final de una carga completa. Esa lectura se usa para ver si el pack mantiene las celdas equilibradas con el tiempo y para generar avisos cuando el desbalanceo es alto.
 
-## Cómo activarlo
+## Por qué es necesario en baterías LFP
 
-El monitor de equilibrio se activa en el paso de configuración de **Carga semanal completa** (asistente inicial o flujo de opciones). Al activarlo también se omite el retraso de carga solar el día de la carga semanal, manteniendo la batería en flotación mientras haya sol disponible y maximizando el tiempo de equilibrado pasivo.
+Las baterías Marstek Venus usan celdas LFP. La química LFP es muy estable y duradera, pero tiene una curva de tensión muy plana durante casi todo el rango útil de SOC. En la zona media de carga, dos celdas pueden tener un SOC distinto y aun así mostrar tensiones muy parecidas. Por eso una lectura de tensión a medio SOC no sirve bien para medir el equilibrio real.
 
-## Cómo funciona
+La zona útil para medir y balancear está cerca del final de carga. A partir de unos 3.45 V por celda, la curva de tensión LFP sube mucho más deprisa y las diferencias entre celdas se hacen visibles. También es la zona en la que el BMS debería hacer balanceo pasivo, descargando ligeramente las celdas más altas.
 
-### Secuencia de lectura OCV (día de carga semanal completa)
+En la práctica, el BMS de Marstek no siempre balancea bien las celdas por sí solo. Si el pack llega al 100 % rápido y vuelve enseguida al uso normal, una celda puede quedar repetidamente más alta que las demás. Por eso la integración hace dos cosas:
 
-Cuando la batería alcanza el 100 % de SOC en el día de carga semanal, la integración:
+- ralentiza la parte final de la carga al 100 % para dar tiempo al BMS a trabajar en la ventana de balanceo;
+- mide el desbalanceo siempre en un punto de tensión alto y repetible, en lugar de usar lecturas ruidosas a medio SOC.
 
-1. **Bloquea la descarga** — impide que la batería descargue para que las celdas reposen en circuito abierto.
-2. **Espera 15 minutos** — permite que el equilibrado activo del BMS se estabilice y que las tensiones superficiales se asienten.
-3. **Comprueba la estabilidad** — requiere al menos 5 sondeos consecutivos con potencia inferior a 50 W y variación de tensión menor de 5 mV entre sondeos.
-4. **Toma la lectura** — registra `delta_mV = (Vmax − Vmin) × 1000`.
-5. **Libera la descarga** — salvo que el resultado sea naranja (ver umbrales más abajo).
+## La curva de carga LFP en detalle
 
-### Retención naranja (2,5 horas de equilibrado pasivo)
+La química LFP (LiFePO4) tiene una curva de carga/descarga radicalmente distinta de la del Li-ion NMC o NCA. Entenderla es lo que justifica cada uno de los umbrales de tensión que usa esta integración.
 
-Si la lectura cae en la zona naranja (100–149 mV), la descarga permanece bloqueada durante 2,5 horas para que el equilibrado pasivo actúe. Tras ese periodo se toma una lectura de seguimiento y la descarga se libera independientemente del resultado.
+Una celda LFP típica de 3,2 V nominales se comporta así durante una carga a corriente constante:
 
-### Lecturas oportunistas
+| Rango de SOC | Rango de tensión de celda | Pendiente |
+|---|---|---|
+| 0 – 10 % | 2,50 V → 3,20 V | Rodilla de entrada muy pronunciada |
+| 10 – 90 % | 3,20 V → 3,30 V | Casi plana — alrededor de 1 mV por % de SOC |
+| 90 – 97 % | 3,30 V → 3,45 V | Empieza una subida suave |
+| 97 – 99 % | 3,45 V → 3,55 V | Rodilla — la tensión empieza a subir con fuerza |
+| 99 – 100 % | 3,55 V → 3,65 V | Rodilla superior abrupta — el "acantilado" del final de carga |
 
-Los días distintos al día de carga semanal completa, si la batería ya está al 100 % de SOC y la potencia es inferior a 50 W, la integración realiza una lectura ligera sin bloquear la descarga. Limitada a una vez cada 24 horas.
+Esa larga meseta plana es la razón por la que, en mitad de la curva, la tensión LFP apenas dice nada sobre el estado de carga. Dos celdas que parecen idénticas a 3,28 V pueden tener en realidad un 5 – 10 % de diferencia de SOC entre ellas, lo cual es enorme.
+
+La meseta también significa que **el BMS no puede hacer un balanceo pasivo útil en mitad de la curva**. El balanceo pasivo funciona drenando corriente de la celda más alta a través de una resistencia. Para poder decidir cuál es la celda "más alta", el BMS necesita que la diferencia entre celdas se eleve por encima del ruido de medida. En la meseta todas las celdas leen prácticamente lo mismo, así que el BMS no tiene nada con lo que actuar.
+
+Solo cuando el pack entra en la rodilla superior (por encima de unos 3,45 V) las tensiones de celda se separan lo suficiente para que el BMS identifique a la celda líder. Una diferencia de 10 mV en la meseta puede corresponder a un 5 % de diferencia de SOC, pero los mismos 10 mV por encima de 3,50 V representan un delta de SOC minúsculo — que es justo lo que interesa al final de carga.
+
+Por eso el balanceo en LFP solo es eficaz en una ventana estrecha: aproximadamente el último 1 – 3 % de carga, por encima de 3,45 V. Fuera de esa ventana el BMS es prácticamente ciego al desbalanceo, y todo el tiempo que el pack pasa por debajo de la rodilla es tiempo durante el que las celdas *no* se están balanceando.
+
+## Disponibilidad
+
+El monitor de equilibrio de celdas está siempre activo. No hay una opción de configuración separada porque las lecturas son datos útiles de salud de la batería y por sí solas no cambian el funcionamiento normal.
+
+Hay dos controles relacionados que deciden cuándo se lleva la batería a la ventana de medición en tensión alta:
+
+- **Reducción por voltaje al cargar al 100 %**: opción por batería. Cuando el objetivo de carga es 100 %, la integración ralentiza la carga final y registra una lectura de balance en tensión alta.
+- **Modo de balanceo activo**: switch por batería. Cuando está activado, la integración cicla activamente esa batería en la zona alta hasta que el delta de celdas baja lo suficiente.
+
+La carga semanal completa puede fijar temporalmente el SOC máximo de la batería al 100 %. Cuando lo hace, se usan exactamente las mismas reglas de reducción por voltaje al 100 %.
+
+## Reducción por voltaje al 100 %
+
+Esta ruta se usa cuando una batería tiene objetivo de carga al 100 %:
+
+- el usuario ha configurado esa batería con `max_soc = 100`, o
+- la carga semanal completa ha elevado temporalmente esa batería al 100 %.
+
+La carga semanal completa no usa un perfil de balanceo distinto. Solo cambia el objetivo de SOC a 100 %; los voltajes, la potencia y la medición son los mismos.
+
+### Perfil de carga
+
+| Condición para una batería | Acción |
+|---|---:|
+| `max_cell_voltage` por debajo de 3.48 V | Límite de carga configurado normal |
+| `max_cell_voltage` igual o superior a 3.48 V | Limita la carga a 95 W |
+| `max_cell_voltage` igual o superior a 3.58 V | Para la carga y espera 60 s |
+| Tras la espera de 60 s | Registra `delta_mV = (Vmax - Vmin) * 1000` |
+
+La lógica se basa en tensión de celda. El SOC no se usa para decidir cuándo empieza o termina la reducción por voltaje, porque cerca del final de carga los registros de tensión de celda son más fiables que el SOC reportado.
+
+No hay histéresis adicional de voltaje en esta ruta. Cuando la batería llega a 3.58 V y se toma la lectura, la integración no fuerza una descarga. Deja la carga parada en esa tensión y permite que la lógica normal de SOC/carga decida cuándo se podrá volver a cargar.
+
+En sistemas con varias baterías, la lógica se evalúa por batería. Una batería puede estar limitada o pausada mientras otra sigue cargando con normalidad.
+
+## Modo de balanceo activo
+
+El modo de balanceo activo es una ruta de recuperación más fuerte para baterías que necesitan más tiempo en la ventana de balanceo.
+
+Cuando el switch está activado, esa batería queda excluida del control PD normal. El resto de baterías pueden seguir funcionando normalmente. La integración eleva temporalmente el objetivo de carga de esa batería al 100 % y ordena carga directa para esa batería.
+
+### Perfil de balanceo activo
+
+| Fase | Acción |
+|---|---|
+| Antes de la zona alta | Carga desde la red a la potencia máxima configurada de la batería hasta `max_cell_voltage >= 3.49 V` |
+| Carga regulada en la parte alta | Carga a 95 W hasta `max_cell_voltage >= 3.58 V` |
+| Espera de medición | Para carga/descarga, espera 60 s y mide el delta de celdas |
+| Si `delta_V > 0.03 V` | Descarga a 25 W hasta `max_cell_voltage <= 3.49 V` y vuelve a cargar |
+| Si `delta_V <= 0.03 V` | Descarga final a 25 W hasta `max_cell_voltage <= 3.48 V`, termina y apaga el switch |
+
+Si el BMS acepta el comando de carga pero la batería no carga realmente antes de llegar a 3.58 V, la integración lo interpreta como rechazo de carga. Primero descarga y después baja el voltaje de reintento en 0.01 V, hasta un mínimo de 3.40 V, para que el siguiente ciclo empiece desde un punto en el que el BMS tenga más probabilidad de aceptar carga.
+
+El modo de balanceo activo no tiene un límite fijo de 48 horas. Se ejecuta hasta que el delta medido en tensión alta es igual o inferior a 0.03 V, o hasta que el usuario apaga el switch.
+
+## Por qué estos umbrales de tensión
+
+Todos los cortes de tensión usados por la reducción al 100 % y por el modo de balanceo activo se eligen contra la curva LFP descrita arriba. Ninguno de estos números es arbitrario.
+
+| Umbral | Dónde se usa | Por qué este valor |
+|---|---|---|
+| **3,45 V** | Referencia para el inicio de la rodilla superior | Es aproximadamente donde la curva LFP abandona la meseta. Por debajo no se puede confiar en las decisiones de balanceo, porque las tensiones de las celdas están demasiado juntas para distinguirlas. |
+| **3,48 V** | Disparador para reducir la carga a 95 W | Un poco por encima de la rodilla. El pequeño margen confirma que el pack está realmente en la ventana de balanceo — y no en un rebote de tensión transitorio causado por un escalón de carga — antes de bajar la potencia. |
+| **3,49 V** | Suelo de descarga entre reintentos del balanceo activo; cambio de carga "rápida" a carga regulada | Está justo dentro de la ventana de balanceo. Parar la descarga aquí mantiene el pack en la zona donde el BMS aún puede ver y drenar la celda alta. Bajar más sacaría al pack de la rodilla y desperdiciaría el tiempo ya invertido en balancear. |
+| **3,58 V** | Punto de medida superior; se para la carga y se esperan 60 s antes de leer el delta | Lo bastante alto como para que incluso la celda *más baja* esté firmemente en la rodilla y la diferencia entre celdas sea significativa. Lo bastante bajo como para que la celda *más alta* siga claramente por debajo del techo de 3,65 V que indican las hojas LFP y por debajo del corte por sobretensión del BMS. El margen de ~70 mV es intencional: la diferencia entre celdas es justo lo que se quiere medir, y hay que dejarle sitio. |
+| **3,48 V (otra vez)** | Suelo de descarga al final del ciclo — la descarga final a 25 W tras completar un balanceo activo se detiene aquí | El mismo umbral usado para entrar en la reducción se reutiliza para salir de la ventana de balanceo. Parar a 3,48 V deja al pack justo por debajo del comienzo de la rodilla superior sin devolverlo del todo a la meseta profunda. Quedarse a 3,55 – 3,58 V durante mucho tiempo acelera el envejecimiento calendario, así que la integración baja deliberadamente al borde inferior de la ventana antes de soltar el control. |
+| **3,40 V** | Límite inferior del voltaje de reintento del balanceo activo cuando se detecta rechazo de carga | La integración baja el voltaje de reintento en 0,01 V cada vez que el BMS rechaza la carga, pero nunca por debajo de 3,40 V. Bajar más saldría completamente de la ventana de balanceo y obligaría a volver a subir toda la curva, lo que es una pérdida de tiempo. |
+| **0,03 V (30 mV)** | Umbral de finalización del balanceo activo | Se considera "suficientemente equilibrado" para un pack LFP en la parte alta de la rodilla. Forzar valores más estrictos (10 mV o menos) rara vez compensa, porque las corrientes de balanceo pasivo son minúsculas — ver la sección siguiente. |
+| **0,05 V (50 mV)** | Frontera verde / amarillo | Un pack por debajo de 50 mV en la parte alta se considera sano. Es más estricto que las especificaciones típicas de fabricantes LFP (80 – 100 mV) porque la medida se toma en la ventana de balanceo, donde las diferencias entre celdas están exageradas. |
+
+Las potencias de 95 W y 25 W están emparejadas con estos umbrales a propósito. Son lo bastante bajas como para que la tensión de celda medida bajo carga esté dominada por la propia química de la celda y no por la caída IR (resistiva) en la celda, en las pletinas y en los shunts del BMS. Cargar o descargar a cientos de vatios en la rodilla desplazaría la lectura aparente decenas de milivoltios y arruinaría tanto las comprobaciones de los umbrales como la medida final del delta.
+
+## Por qué tarda tanto
+
+El balanceo de celdas **no** es un proceso rápido — y los packs Marstek Venus no son una excepción. Hay dos razones.
+
+**1. La corriente de balanceo pasivo es muy pequeña.** Un BMS LFP típico drena la celda más alta a través de una resistencia con una corriente de entre 30 mA y 150 mA. Los packs Marstek Venus se mueven por la parte baja de ese rango. Para una celda de 100 Ah, un drenaje de 50 mA quita solo unos 0,05 % de SOC por hora a la celda alta. Por eso igualar diferencias incluso pequeñas entre celdas requiere muchas horas seguidas dentro de la ventana de balanceo.
+
+**2. La ventana de balanceo es estrecha.** El BMS solo puede drenar cuando el pack está por encima de ~3,45 V *y* la celda más alta destaca de forma detectable sobre el resto. En cuanto se para la carga o el pack vuelve a bajar de la rodilla, el balanceo se detiene. Un ciclo de carga normal que llega al 100 % y vuelve enseguida a descargar pasa solo unos minutos en la ventana útil — muy poco para que tenga efecto visible.
+
+La consecuencia práctica es:
+
+> **Reducir el delta de celdas en lo alto de carga unos 5 mV requiere típicamente alrededor de 24 horas de tiempo acumulado en la parte alta de la ventana de balanceo.**
+
+Esa cifra es coherente tanto con el cálculo de corrientes de drenaje de arriba como con lo observado en packs Venus reales. Desbalanceos mayores (50 mV o más) pueden necesitar **varios días** de sesiones repetidas de balanceo arriba antes de que el delta empiece a bajar de forma consistente. Packs que han estado crónicamente desbalanceados durante meses pueden tardar una semana o más en recuperarse.
+
+Esa es también la razón por la que el modo de balanceo activo no tiene una "vía rápida":
+
+- el límite de 95 W de carga por encima de 3,48 V está pensado para mantener al pack en la rodilla el tiempo suficiente para que el BMS avance, en lugar de atravesarla en segundos;
+- los 25 W de descarga entre reintentos están pensados para que el pack se quede cerca de 3,49 V sin salir de la ventana;
+- el bucle de balanceo activo puede ejecutarse indefinidamente, porque cualquier duración por debajo de "muchas horas" difícilmente moverá el delta.
+
+Si el objetivo es recuperar un pack visiblemente desbalanceado, lo correcto es activar el modo de balanceo activo y **dejarlo funcionando toda la noche (o más tiempo) y mirar el resultado al día siguiente**. Mirar el delta de celdas en tiempo real esperando movimientos en cuestión de minutos solo lleva a frustración.
+
+## Cómo se mide el desbalanceo
+
+La única lectura que alimenta el estado de balance, los avisos y la tendencia es la medición explícita en tensión alta:
+
+1. la batería llega a `max_cell_voltage >= 3.58 V`;
+2. se detiene la carga;
+3. la integración espera 60 segundos;
+4. registra la diferencia entre `max_cell_voltage` y `min_cell_voltage`.
+
+Las antiguas lecturas tipo OCV, las lecturas oportunistas y las retenciones pasivas largas ya no se usan. Medir siempre en el mismo punto de tensión alta hace que las lecturas sean más comparables entre cargas completas.
 
 ## Umbrales
 
 | Estado | Rango de delta | Significado |
 |---|---|---|
-| 🟢 Verde | < 50 mV | Buen equilibrio |
-| 🟡 Amarillo | 50 – 99 mV | Desequilibrio leve — monitorizar con el tiempo |
-| 🟠 Naranja | 100 – 149 mV | Desequilibrio moderado — retención de 2,5 h iniciada |
-| 🔴 Rojo | ≥ 150 mV | Desequilibrio elevado |
+| Verde | < 50 mV | Buen equilibrio |
+| Amarillo | 50-99 mV | Desbalanceo leve; monitorizar con el tiempo |
+| Naranja | 100-149 mV | Desbalanceo moderado |
+| Rojo | >= 150 mV | Desbalanceo alto |
 
-Los umbrales son fijos y se aplican por igual a todas las químicas de celda LFP.
+Los umbrales son fijos y se aplican por igual a todos los packs LFP compatibles.
 
 ## Notificaciones
 
-La integración envía notificaciones persistentes de Home Assistant en los siguientes casos:
+La integración envía notificaciones persistentes de Home Assistant en estos casos:
 
 | Evento | Título de la notificación |
 |---|---|
-| Lectura naranja o roja | ⚠️ Cell imbalance — {nombre de la batería} |
-| Naranja persiste tras 2,5 h | ⚠️ Cell imbalance persists — {nombre de la batería} |
-| Rojo en 2 o más cargas consecutivas | 🔴 Possible degraded cell — {nombre de la batería} |
-| Tendencia creciente con media por encima de 75 mV | 📈 Rising imbalance trend — {nombre de la batería} |
+| Lectura naranja o roja en tensión alta | Cell imbalance - `{nombre de la batería}` |
+| Rojo en 2 o más cargas completas consecutivas | Possible degraded cell - `{nombre de la batería}` |
+| Tendencia creciente con media por encima de 75 mV | Rising imbalance trend - `{nombre de la batería}` |
+| Inicio/final del modo de balanceo activo | Active balancing started/finished - `{nombre de la batería}` |
 
 ## Entidades de sensor
 
@@ -55,18 +169,29 @@ Cuando la función está activada se crean cinco entidades de sensor por baterí
 | Entidad | Descripción | Unidad |
 |---|---|---|
 | `sensor.*_cell_delta` | Diferencia de tensión entre la celda máxima y mínima | mV |
-| `sensor.*_balance_status` | Resultado del equilibrio: `green` / `yellow` / `orange` / `red` | — |
-| `sensor.*_delta_trend` | Tendencia en las últimas lecturas formales: `rising` / `stable` / `falling` | — |
+| `sensor.*_balance_status` | Resultado del equilibrio: `green` / `yellow` / `orange` / `red` | - |
+| `sensor.*_delta_trend` | Tendencia en las lecturas recientes: `rising` / `stable` / `falling` | - |
 | `sensor.*_last_balance_read` | Marca de tiempo de la última lectura | timestamp |
-| `sensor.*_delta_avg_4w` | Media de las últimas 4 lecturas formales | mV |
+| `sensor.*_delta_avg_4w` | Media móvil de las últimas 4 lecturas | mV |
 
-Los valores se restauran desde el almacenamiento persistente tras un reinicio de Home Assistant, de modo que los sensores muestran el último estado conocido de inmediato al arrancar.
+Los valores se restauran desde el almacenamiento persistente tras un reinicio de Home Assistant, de modo que los sensores muestran el último estado conocido al arrancar.
 
-## Notas técnicas
+## Diagnóstico
 
-- El pico de tensión visible al 100 % de SOC (antes del periodo de espera) es un comportamiento normal del equilibrado activo del BMS, no un desequilibrio real. La espera de 15 minutos garantiza que la lectura se realiza a tensión real de circuito abierto.
-- Se almacenan hasta 52 lecturas por batería (aproximadamente un año de cargas semanales).
-- La media a 4 semanas y la tendencia se calculan únicamente a partir de lecturas formales (no oportunistas), para reflejar el patrón a tensión real de circuito abierto.
+El sensor **Integration Status** expone un atributo `normal_balance_protection` con detalles por batería:
+
+| Atributo | Significado |
+|---|---|
+| `enabled` | Si la reducción por voltaje al 100 % está activada para esa batería |
+| `in_zone` | Si `max_cell_voltage` está en la ventana de balanceo superior |
+| `paused` | Si la carga está parada por tensión alta de celda |
+| `max_cell_voltage` / `min_cell_voltage` | Tensiones máxima y mínima actuales |
+| `delta_V` | Diferencia actual de tensión en voltios |
+| `voltage_taper_latched` | Si la reducción a 95 W está activa |
+| `active_balance_phase` | Fase actual de medición al 100 %, si existe |
+| `charge_limit_w` | Límite efectivo de carga por batería antes del reparto |
+
+El modo de balanceo activo también expone su fase actual, delta medido, potencia ordenada y voltaje de reintento en los diagnósticos del estado de integración.
 
 !!! info
     Los registros de tensión de celda (`max_cell_voltage`, `min_cell_voltage`) se leen en todas las versiones de batería compatibles (v2, v3, vA, vD).

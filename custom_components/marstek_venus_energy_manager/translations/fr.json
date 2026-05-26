@@ -50,7 +50,8 @@
           "min_soc": "SOC minimum (%)",
           "enable_charge_hysteresis": "Activer l'hystérésis de charge",
           "charge_hysteresis_percent": "Pourcentage d'hystérésis (%)",
-          "backup_offgrid_threshold": "Seuil de charge hors réseau de secours (W)"
+          "backup_offgrid_threshold": "Seuil de charge hors réseau de secours (W)",
+          "full_charge_voltage_taper_enabled": "Activer la réduction de charge à 100% par tension"
         },
         "data_description": {
           "max_charge_power": "Puissance maximale autorisée pour charger la batterie",
@@ -59,7 +60,8 @@
           "min_soc": "État de charge minimum - la batterie ne se déchargera pas en dessous de cette valeur",
           "enable_charge_hysteresis": "Empêche la batterie de se charger lorsque le SOC est proche du maximum",
           "charge_hysteresis_percent": "La batterie ne se chargera pas tant que le SOC ne descend pas à (max_soc - hystérésis). Ex : SOC max 100% avec 5% d'hystérésis = pas de charge avant 95%",
-          "backup_offgrid_threshold": "Une charge hors réseau supérieure à cette valeur est traitée comme un événement de secours actif, excluant la batterie du contrôle PD. Augmenter si des charges permanentes (routeur, caméras) sont connectées au port hors réseau."
+          "backup_offgrid_threshold": "Une charge hors réseau supérieure à cette valeur est traitée comme un événement de secours actif, excluant la batterie du contrôle PD. Augmenter si des charges permanentes (routeur, caméras) sont connectées au port hors réseau.",
+          "full_charge_voltage_taper_enabled": "Lorsque la cible est 100%, limite la charge à 95 W à partir de 3.48 V de tension maximale de cellule et s'arrête à 3.58 V pour mesurer le déséquilibre après 60 secondes."
         }
       },
       "time_slots": {
@@ -216,12 +218,10 @@
         "title": "Configuration de la charge complète hebdomadaire",
         "description": "Sélectionnez le jour de la semaine où les batteries doivent se charger à 100% pour l'équilibrage des cellules. Après avoir atteint 100%, le système revient à votre limite de charge maximale configurée.",
         "data": {
-          "weekly_full_charge_day": "Jour de la semaine",
-          "enable_balance_monitor": "Activer le moniteur d'équilibrage des cellules"
+          "weekly_full_charge_day": "Jour de la semaine"
         },
         "data_description": {
-          "weekly_full_charge_day": "Jour où les batteries se chargeront à 100% quel que soit le SOC maximum configuré. Cela aide à équilibrer les cellules de la batterie.",
-          "enable_balance_monitor": "Lorsqu'activé, le système analyse l'équilibre de tension des cellules après chaque charge complète et alerte en cas de déséquilibre détecté. Contourne également le retard de charge solaire ce jour-là afin que la batterie atteigne 100% et reste en charge d'entretien tant qu'il y a du soleil."
+          "weekly_full_charge_day": "Jour où les batteries se chargeront à 100% quel que soit le SOC maximum configuré. Cela aide à équilibrer les cellules de la batterie."
         }
       },
       "charge_delay": {
@@ -333,7 +333,7 @@
       "invalid_unit": "Le capteur de prévision solaire doit avoir 'kWh' ou 'Wh' comme unité.",
       "overlapping_slots": "Ce créneau horaire chevauche un créneau existant. Ajustez les horaires ou les jours.",
       "midnight_crossing": "L'heure de début doit être antérieure à l'heure de fin. Pour les périodes nocturnes, créez deux créneaux séparés (ex: 22:00-23:59 et 00:00-06:00).",
-      "no_price_data": "Le capteur sélectionné ne possède pas les attributs de prix attendus. Nordpool : nécessite `raw_today`. PVPC : nécessite `price_00h` … `price_23h`. CKW : nécessite l'attribut `prices` avec une liste de créneaux."
+      "no_price_data": "Le capteur sélectionné ne possède pas les attributs de prix attendus. Nordpool : nécessite `raw_today`. PVPC : nécessite `price_00h` … `price_23h`. CKW : nécessite l'attribut `prices` avec une liste de créneaux. EPEX : nécessite l'attribut `data` avec une liste de créneaux. ENTSO-e : nécessite l'attribut `prices_today` avec une liste de créneaux."
     },
     "abort": {
       "already_configured": "Cette intégration est déjà configurée."
@@ -406,7 +406,8 @@
           "min_soc": "SOC minimum (%)",
           "enable_charge_hysteresis": "Activer l'hystérésis de charge",
           "charge_hysteresis_percent": "Pourcentage d'hystérésis (%)",
-          "backup_offgrid_threshold": "Seuil de charge hors réseau de secours (W)"
+          "backup_offgrid_threshold": "Seuil de charge hors réseau de secours (W)",
+          "full_charge_voltage_taper_enabled": "Activer la réduction de charge à 100% par tension"
         },
         "data_description": {
           "max_charge_power": "Puissance maximale autorisée pour charger la batterie",
@@ -415,7 +416,8 @@
           "min_soc": "État de charge minimum",
           "enable_charge_hysteresis": "Empêche la batterie de se charger lorsque le SOC est proche du maximum",
           "charge_hysteresis_percent": "La batterie ne se chargera pas tant que le SOC ne descend pas à (max_soc - hystérésis). Ex : SOC max 100% avec 5% d'hystérésis = pas de charge avant 95%",
-          "backup_offgrid_threshold": "Une charge hors réseau supérieure à cette valeur est traitée comme un événement de secours actif, excluant la batterie du contrôle PD. Augmenter si des charges permanentes (routeur, caméras) sont connectées au port hors réseau."
+          "backup_offgrid_threshold": "Une charge hors réseau supérieure à cette valeur est traitée comme un événement de secours actif, excluant la batterie du contrôle PD. Augmenter si des charges permanentes (routeur, caméras) sont connectées au port hors réseau.",
+          "full_charge_voltage_taper_enabled": "Lorsque la cible est 100%, limite la charge à 95 W à partir de 3.48 V de tension maximale de cellule et s'arrête à 3.58 V pour mesurer le déséquilibre après 60 secondes."
         }
       },
       "time_slots": {
@@ -572,12 +574,10 @@
         "title": "Configuration de la charge complète hebdomadaire",
         "description": "Sélectionnez le jour de la semaine où les batteries doivent se charger à 100% pour l'équilibrage des cellules. Après avoir atteint 100%, le système revient à votre limite de charge maximale configurée.",
         "data": {
-          "weekly_full_charge_day": "Jour de la semaine",
-          "enable_balance_monitor": "Activer le moniteur d'équilibrage des cellules"
+          "weekly_full_charge_day": "Jour de la semaine"
         },
         "data_description": {
-          "weekly_full_charge_day": "Jour où les batteries se chargeront à 100% quel que soit le SOC maximum configuré. Cela aide à équilibrer les cellules de la batterie.",
-          "enable_balance_monitor": "Lorsqu'activé, le système analyse l'équilibre de tension des cellules après chaque charge complète et alerte en cas de déséquilibre détecté. Contourne également le retard de charge solaire ce jour-là afin que la batterie atteigne 100% et reste en charge d'entretien tant qu'il y a du soleil."
+          "weekly_full_charge_day": "Jour où les batteries se chargeront à 100% quel que soit le SOC maximum configuré. Cela aide à équilibrer les cellules de la batterie."
         }
       },
       "charge_delay": {
@@ -689,7 +689,7 @@
       "invalid_unit": "Le capteur de prévision solaire doit avoir 'kWh' ou 'Wh' comme unité.",
       "overlapping_slots": "Ce créneau horaire chevauche un créneau existant. Ajustez les horaires ou les jours.",
       "midnight_crossing": "L'heure de début doit être antérieure à l'heure de fin. Pour les périodes nocturnes, créez deux créneaux séparés (ex: 22:00-23:59 et 00:00-06:00).",
-      "no_price_data": "Le capteur sélectionné ne possède pas les attributs de prix attendus. Nordpool : nécessite `raw_today`. PVPC : nécessite `price_00h` … `price_23h`. CKW : nécessite l'attribut `prices` avec une liste de créneaux."
+      "no_price_data": "Le capteur sélectionné ne possède pas les attributs de prix attendus. Nordpool : nécessite `raw_today`. PVPC : nécessite `price_00h` … `price_23h`. CKW : nécessite l'attribut `prices` avec une liste de créneaux. EPEX : nécessite l'attribut `data` avec une liste de créneaux. ENTSO-e : nécessite l'attribut `prices_today` avec une liste de créneaux."
     }
   },
   "selector": {
@@ -715,7 +715,9 @@
       "options": {
         "nordpool": "Nordpool",
         "pvpc": "PVPC (Espagne – ESIOS REE)",
-        "ckw": "CKW (Suisse)"
+        "ckw": "CKW (Suisse)",
+        "epex": "EPEX Spot (p. ex. aWATTar)",
+        "entsoe": "ENTSO-e (Plateforme de Transparence)"
       }
     }
   },
@@ -744,6 +746,12 @@
       },
       "battery_allow_discharge": {
         "name": "Autoriser la Decharge"
+      },
+      "full_charge_voltage_taper": {
+        "name": "Réduction Charge 100% par Tension"
+      },
+      "active_balance_mode": {
+        "name": "Mode d'Équilibrage Actif"
       },
       "automation_charging_active": {
         "name": "Charge par Prix Externe"
@@ -791,6 +799,7 @@
           "manual": "Mode Manuel",
           "grid_charging": "Charge depuis le Réseau",
           "weekly_full_charge": "Charge Complète Hebdomadaire",
+          "active_balance_mode": "Mode d'Équilibrage Actif",
           "charge_delayed": "Charge Retardée",
           "waiting_for_solar": "En Attente du Solaire",
           "charging_to_setpoint": "Charge jusqu'au Seuil",
@@ -961,10 +970,10 @@
         "name": "Cycles Batterie (Calculé)"
       },
       "cell_delta": {
-        "name": "Delta Cellule"
+        "name": "Équilibrage - Delta Cellule (à 100%)"
       },
       "balance_status": {
-        "name": "État d'Équilibrage",
+        "name": "Équilibrage - État",
         "state": {
           "green": "Équilibré",
           "yellow": "Déséquilibre mineur",
@@ -974,7 +983,7 @@
         }
       },
       "delta_trend": {
-        "name": "Tendance d'Équilibrage",
+        "name": "Équilibrage - Tendance",
         "state": {
           "rising": "Croissante",
           "stable": "Stable",
@@ -983,10 +992,10 @@
         }
       },
       "last_balance_read": {
-        "name": "Dernière Lecture d'Équilibrage"
+        "name": "Équilibrage - Dernière Lecture"
       },
       "delta_avg_4w": {
-        "name": "Delta Moyen (4 lectures)"
+        "name": "Équilibrage - Delta Moyen (4 lectures)"
       },
       "balance_neto": {
         "name": "Bilan Net",
