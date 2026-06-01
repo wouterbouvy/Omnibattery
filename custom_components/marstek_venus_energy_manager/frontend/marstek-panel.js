@@ -2006,10 +2006,16 @@ class MarstekVenusPanel extends HTMLElement {
         return { text: disp, tone: raw === "active" ? "good" : "neutral" };
       case K.weeklyFullCharge:
         return { text: disp, tone: raw === "charging" || raw === "complete" ? "good" : "neutral" };
-      case K.chargeDelay:
+      case K.chargeDelay: {
         if (raw === "charging_allowed" || raw === "charging_to_setpoint") return { text: disp, tone: "good" };
-        if (raw === "delayed" || raw === "waiting_for_solar") return { text: disp, tone: "warn" };
+        if (raw === "delayed" || raw === "waiting_for_solar") {
+          // Append the estimated release time when known (attribute may be
+          // empty while still "waiting_for_solar" before solar production starts).
+          const until = so.attributes && so.attributes.estimated_unlock_time;
+          return { text: until ? `${disp} · ${until}` : disp, tone: "warn" };
+        }
         return { text: disp, tone: "neutral" };
+      }
       case K.activeBatteries:
         if (raw.startsWith("discharging")) return { text: this._t("discharging"), tone: "good" };
         if (raw.startsWith("charging")) return { text: this._t("charging"), tone: "good" };
