@@ -1059,6 +1059,8 @@ class ChargeDischargeController:
                 continue
             if self._is_backup_function_active(coord):
                 continue
+            if coord.rs485_user_disabled:
+                continue
 
             slot = self._get_active_slot(coord, "any")
             manual = self._slot_manual_direction_for(slot, coord)
@@ -1876,6 +1878,12 @@ class ChargeDischargeController:
             # Skip batteries with backup function active (they manage themselves autonomously)
             if self._is_backup_function_active(coordinator):
                 _LOGGER.debug("%s: Skipping - backup function is active", coordinator.name)
+                continue
+
+            # Skip batteries the user excluded from integration control: RS485 control
+            # disabled means the battery is driven by the official app / its own logic.
+            if coordinator.rs485_user_disabled:
+                _LOGGER.debug("%s: Skipping - RS485 control disabled by user", coordinator.name)
                 continue
 
             if self._is_manual_slot_owned(coordinator):
@@ -3715,6 +3723,15 @@ class ChargeDischargeController:
         if self._is_backup_function_active(coordinator):
             _LOGGER.debug(
                 "[%s] Skipping power write - backup function is active",
+                coordinator.name
+            )
+            return False
+
+        # Skip if the user disabled RS485 control (battery driven by the official
+        # app / its own logic — must stay out of all PD power writes).
+        if coordinator.rs485_user_disabled:
+            _LOGGER.debug(
+                "[%s] Skipping power write - RS485 control disabled by user",
                 coordinator.name
             )
             return False
