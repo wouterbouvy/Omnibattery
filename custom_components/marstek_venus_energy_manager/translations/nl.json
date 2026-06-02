@@ -916,6 +916,9 @@
       "system_daily_home_energy": {
         "name": "Dagelijks Huishoudverbruik"
       },
+      "system_home_consumption": {
+        "name": "Huishoudverbruik"
+      },
       "system_daily_grid_import_energy": {
         "name": "Dagelijkse Netimport"
       },
@@ -1040,6 +1043,12 @@
       },
       "mppt4_power": {
         "name": "MPPT4-Vermogen"
+      },
+      "solar_power": {
+        "name": "Zonnevermogen"
+      },
+      "battery_power": {
+        "name": "Batterijvermogen"
       },
       "round_trip_efficiency_total": {
         "name": "Totaal Rendement"

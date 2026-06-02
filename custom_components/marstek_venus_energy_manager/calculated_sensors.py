@@ -172,3 +172,100 @@ class MarstekVenusCycleSensor(CoordinatorEntity, SensorEntity):
             "manufacturer": "Marstek",
             "model": "Venus",
         }
+
+
+class MarstekVenusSolarPowerSensor(CoordinatorEntity, SensorEntity):
+    """Total DC-coupled PV power for a Venus D/A unit: sum of its MPPT inputs."""
+
+    def __init__(
+        self, coordinator: MarstekVenusDataUpdateCoordinator, definition: dict
+    ) -> None:
+        """Initialize the solar power sensor."""
+        super().__init__(coordinator)
+        self.definition = definition
+
+        self._attr_has_entity_name = True
+        self._attr_translation_key = definition["key"]
+        self._attr_unique_id = f"{coordinator.host}_{coordinator.port}_{definition['key']}"
+        self._attr_device_class = definition.get("device_class")
+        self._attr_state_class = definition.get("state_class")
+        self._attr_native_unit_of_measurement = definition.get("unit")
+        self._attr_icon = definition.get("icon")
+        self._attr_should_poll = False
+        self._mppt_keys = definition["dependency_keys"]["mppt"]
+
+    @property
+    def native_value(self):
+        """Return the sum of this unit's MPPT power inputs (W)."""
+        if self.coordinator.data is None:
+            return None
+
+        total = 0
+        for key in self._mppt_keys:
+            value = self.coordinator.data.get(key)
+            if value is not None:
+                total += value
+        return round(total)
+
+    @property
+    def device_info(self):
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, f"{self.coordinator.host}_{self.coordinator.port}")},
+            "name": self.coordinator.name,
+            "manufacturer": "Marstek",
+            "model": "Venus",
+        }
+
+
+class MarstekVenusBatteryPowerSensor(CoordinatorEntity, SensorEntity):
+    """True battery power for a Venus D/A unit: ac_power minus DC PV (MPPT).
+
+    The ac_power register reports the AC cable; DC PV passes straight through it,
+    so it shows up as less import / more export. Subtracting the unit's MPPT
+    recovers the battery's own power. Same sign as ac_power (- charge / + discharge).
+    """
+
+    def __init__(
+        self, coordinator: MarstekVenusDataUpdateCoordinator, definition: dict
+    ) -> None:
+        """Initialize the battery power sensor."""
+        super().__init__(coordinator)
+        self.definition = definition
+
+        self._attr_has_entity_name = True
+        self._attr_translation_key = definition["key"]
+        self._attr_unique_id = f"{coordinator.host}_{coordinator.port}_{definition['key']}"
+        self._attr_device_class = definition.get("device_class")
+        self._attr_state_class = definition.get("state_class")
+        self._attr_native_unit_of_measurement = definition.get("unit")
+        self._attr_icon = definition.get("icon")
+        self._attr_should_poll = False
+        self._ac_key = definition["dependency_keys"]["ac"]
+        self._mppt_keys = definition["dependency_keys"]["mppt"]
+
+    @property
+    def native_value(self):
+        """Return ac_power minus this unit's MPPT total (W)."""
+        if self.coordinator.data is None:
+            return None
+
+        ac = self.coordinator.data.get(self._ac_key)
+        if ac is None:
+            return None
+        solar = 0
+        for key in self._mppt_keys:
+            value = self.coordinator.data.get(key)
+            if value is not None:
+                solar += value
+        return round(ac - solar)
+
+    @property
+    def device_info(self):
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, f"{self.coordinator.host}_{self.coordinator.port}")},
+            "name": self.coordinator.name,
+            "manufacturer": "Marstek",
+            "model": "Venus",
+        }

@@ -21,6 +21,8 @@ from .const import (
     EFFICIENCY_SENSOR_DEFINITIONS,
     STORED_ENERGY_SENSOR_DEFINITIONS,
     CYCLE_SENSOR_DEFINITIONS,
+    SOLAR_POWER_SENSOR_DEFINITIONS,
+    BATTERY_POWER_SENSOR_DEFINITIONS,
     CONF_ENABLE_CHARGE_DELAY,
     CONF_ENABLE_WEEKLY_FULL_CHARGE_DELAY,
     CONF_ENABLE_PREDICTIVE_CHARGING,
@@ -90,7 +92,7 @@ from .const import (
 )
 from .coordinator import MarstekVenusDataUpdateCoordinator
 from .aggregate_sensors import AGGREGATE_SENSOR_DEFINITIONS, MarstekVenusAggregateSensor, DailyGridAtMinSocSensor, SystemAlarmSensor
-from .calculated_sensors import MarstekVenusEfficiencySensor, MarstekVenusStoredEnergySensor, MarstekVenusCycleSensor
+from .calculated_sensors import MarstekVenusEfficiencySensor, MarstekVenusStoredEnergySensor, MarstekVenusCycleSensor, MarstekVenusSolarPowerSensor, MarstekVenusBatteryPowerSensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -140,6 +142,13 @@ async def async_setup_entry(
             entities.append(MarstekVenusStoredEnergySensor(coordinator, definition))
         for definition in CYCLE_SENSOR_DEFINITIONS:
             entities.append(MarstekVenusCycleSensor(coordinator, definition))
+        # DC-coupled PV total + solar-corrected battery power exist only on
+        # Venus D/A (units with MPPT registers).
+        if coordinator.battery_version in ("vA", "vD"):
+            for definition in SOLAR_POWER_SENSOR_DEFINITIONS:
+                entities.append(MarstekVenusSolarPowerSensor(coordinator, definition))
+            for definition in BATTERY_POWER_SENSOR_DEFINITIONS:
+                entities.append(MarstekVenusBatteryPowerSensor(coordinator, definition))
 
     # Add discharge window diagnostic sensor (always, even without slots)
     entities.append(DischargeWindowSensor(hass, entry))

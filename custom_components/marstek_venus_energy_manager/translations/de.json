@@ -916,6 +916,9 @@
       "system_daily_home_energy": {
         "name": "Täglicher Haushaltsverbrauch"
       },
+      "system_home_consumption": {
+        "name": "Haushaltsverbrauch"
+      },
       "system_daily_grid_import_energy": {
         "name": "Täglicher Netzbezug"
       },
@@ -1040,6 +1043,12 @@
       },
       "mppt4_power": {
         "name": "MPPT4-Leistung"
+      },
+      "solar_power": {
+        "name": "Solarleistung"
+      },
+      "battery_power": {
+        "name": "Batterieleistung"
       },
       "round_trip_efficiency_total": {
         "name": "Gesamtwirkungsgrad"

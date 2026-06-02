@@ -916,6 +916,9 @@
       "system_daily_home_energy": {
         "name": "Consommation Domestique Quotidienne"
       },
+      "system_home_consumption": {
+        "name": "Consommation Domestique"
+      },
       "system_daily_grid_import_energy": {
         "name": "Importation Réseau Quotidienne"
       },
@@ -1040,6 +1043,12 @@
       },
       "mppt4_power": {
         "name": "Puissance MPPT4"
+      },
+      "solar_power": {
+        "name": "Puissance solaire"
+      },
+      "battery_power": {
+        "name": "Puissance de la batterie"
       },
       "round_trip_efficiency_total": {
         "name": "Rendement Total Aller-Retour"

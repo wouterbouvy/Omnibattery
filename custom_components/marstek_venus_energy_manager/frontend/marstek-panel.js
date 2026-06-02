@@ -370,6 +370,7 @@ const K = {
   sysCapacity: "system_total_energy",
   sysChargePower: "system_charge_power",
   sysDischargePower: "system_discharge_power",
+  sysHomePower: "system_home_consumption", // derived instantaneous home consumption (W)
   sysDailyCharge: "system_daily_charging_energy",
   sysDailyDischarge: "system_daily_discharging_energy",
   sysDailySolar: "system_daily_solar_energy", // exact daily PV production (kWh)
@@ -755,11 +756,21 @@ class MarstekVenusPanel extends HTMLElement {
         return id ? hass.states[id] : null;
       };
       const acW = this._watts(get(K.acPower));
+      // DC-coupled PV on Venus D/A: sum this unit's own MPPT inputs (W, >=0).
+      let mpptW = null;
+      for (const mk of MPPT_KEYS) {
+        const s = this._watts(get(mk));
+        if (s != null) mpptW = (mpptW || 0) + s;
+      }
       batteries.push({
         dev,
         soc: this._num(socObj),
-        // ac_power HA sign is - charge / + discharge; negate to panel's + charge / - discharge
-        powerW: acW == null ? null : -acW,
+        // ac_power HA sign is - charge / + discharge; negate to panel's + charge / - discharge.
+        // DC PV charges the cells without crossing the AC port (shows up as less
+        // import / more export on ac_power), so add this unit's MPPT back to recover
+        // the true cell power.
+        powerW: acW == null ? null : -acW + (mpptW || 0),
+        mpptW,
         stored: this._num(get(K.storedEnergy)),
         capacity: this._num(get(K.batteryTotalEnergy)),
         inverter: (get(K.inverterState) || {}).state || null,
@@ -827,21 +838,21 @@ class MarstekVenusPanel extends HTMLElement {
     }
     const battery = battW != null ? battW / 1000 : 0;
 
-    // solar: explicit production sensor (external inverter) takes priority;
-    // else sum per-battery MPPT sensors when the model exposes any.
+    // solar: external AC-coupled production sensor (extra inverter) PLUS the
+    // DC-coupled MPPT panels on Venus D/A units — both feed the Solar node. The
+    // MPPT share was already removed from each battery's powerW above so it is
+    // not double-counted as discharge.
     let solarW = null;
     const solarObj = this._panelConfig.solar_entity
       ? hass.states[this._panelConfig.solar_entity]
       : null;
     const explicitSolarW = this._watts(solarObj);
-    if (explicitSolarW != null) {
-      solarW = explicitSolarW;
-    } else {
-      for (const mk of MPPT_KEYS) {
-        const s = this._sum(byKey, mk);
-        if (s != null) solarW = (solarW || 0) + s;
-      }
-    }
+    if (explicitSolarW != null) solarW = explicitSolarW;
+    const mpptTotalW = batteries.reduce(
+      (a, b) => (b.mpptW != null ? (a || 0) + b.mpptW : a),
+      null
+    );
+    if (mpptTotalW != null) solarW = (solarW || 0) + mpptTotalW;
     const solar = solarW != null ? Math.max(0, solarW / 1000) : 0;
     const hasSolar = solarW != null;
 
@@ -1160,7 +1171,9 @@ class MarstekVenusPanel extends HTMLElement {
     const battEid = acIds.length === 1 ? acIds[0] : this._sysEntityId(K.sysChargePower);
     this._linkMoreInfo(this._r.nGrid.node, fcfg.grid_entity);
     this._linkMoreInfo(this._r.nSolar.node, fcfg.solar_entity);
-    this._linkMoreInfo(this._r.nHome.node, fcfg.home_entity);
+    // home: configured sensor if any, else the backend-derived system sensor so
+    // clicking the node still opens a history graph.
+    this._linkMoreInfo(this._r.nHome.node, fcfg.home_entity || this._sysEntityId(K.sysHomePower));
     this._linkMoreInfo(this._r.nBatt.node, battEid);
 
     // self-consumption chip, bottom-centre of the scene

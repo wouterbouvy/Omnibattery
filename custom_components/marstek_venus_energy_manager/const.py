@@ -1802,6 +1802,40 @@ CYCLE_SENSOR_DEFINITIONS = [
     }
 ]
 
+# Per-battery total DC-coupled PV power (sum of MPPT inputs) — vA/vD only.
+SOLAR_POWER_SENSOR_DEFINITIONS = [
+    {
+        "key": "solar_power",
+        "name": "Solar Power",
+        "unit": "W",
+        "device_class": "power",
+        "state_class": "measurement",
+        "icon": "mdi:solar-power",
+        "dependency_keys": {
+            "mppt": ["mppt1_power", "mppt2_power", "mppt3_power", "mppt4_power"],
+        },
+    }
+]
+
+# Per-battery true battery power (AC port net of DC PV) — vA/vD only. The ac_power
+# register reports the AC cable; DC PV passes through it, so subtract the unit's
+# MPPT to get the battery's own charge/discharge. Same sign as ac_power
+# (- charge / + discharge).
+BATTERY_POWER_SENSOR_DEFINITIONS = [
+    {
+        "key": "battery_power",
+        "name": "Battery Power",
+        "unit": "W",
+        "device_class": "power",
+        "state_class": "measurement",
+        "icon": "mdi:home-battery",
+        "dependency_keys": {
+            "ac": "ac_power",
+            "mppt": ["mppt1_power", "mppt2_power", "mppt3_power", "mppt4_power"],
+        },
+    }
+]
+
 # Predictive Grid Charging Configuration
 CONF_ENABLE_PREDICTIVE_CHARGING = "enable_predictive_charging"
 CONF_CHARGING_TIME_SLOT = "charging_time_slot"
