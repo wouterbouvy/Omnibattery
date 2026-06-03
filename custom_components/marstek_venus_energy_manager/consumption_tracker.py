@@ -67,6 +67,10 @@ class ConsumptionTracker:
         self._daily_solar_last_time: Optional[float] = None
         self._daily_home_last_time: Optional[float] = None
         self._daily_grid_last_time: Optional[float] = None
+        # Previous power sample (kW) for trapezoidal integration of the daily totals
+        self._daily_solar_last_power_kw: Optional[float] = None
+        self._daily_home_last_power_kw: Optional[float] = None
+        self._daily_grid_last_power_kw: Optional[float] = None
         self._grid_at_min_soc_save_counter: int = 0
         self._accumulator_last_save_monotonic: float = 0.0
         self._solar_noon_cache: Optional[tuple[date, float]] = None
@@ -244,6 +248,7 @@ class ConsumptionTracker:
                 )
             ctrl._daily_solar_energy_kwh = 0.0
             self._daily_solar_last_time = None
+            self._daily_solar_last_power_kw = None
             ctrl._daily_solar_energy_date = today
         if ctrl._daily_home_energy_date != today:
             if ctrl._daily_home_energy_date is not None:
@@ -253,6 +258,7 @@ class ConsumptionTracker:
                 )
             ctrl._daily_home_energy_kwh = 0.0
             self._daily_home_last_time = None
+            self._daily_home_last_power_kw = None
             ctrl._daily_home_energy_date = today
         if ctrl._daily_grid_energy_date != today:
             if ctrl._daily_grid_energy_date is not None:
@@ -265,6 +271,7 @@ class ConsumptionTracker:
             ctrl._daily_grid_import_energy_kwh = 0.0
             ctrl._daily_grid_export_energy_kwh = 0.0
             self._daily_grid_last_time = None
+            self._daily_grid_last_power_kw = None
             ctrl._daily_grid_energy_date = today
 
     def _read_power_kw(self, entity_id: str) -> Optional[float]:
@@ -280,36 +287,52 @@ class ConsumptionTracker:
         return value if unit == "kW" else value / 1000.0
 
     async def accumulate_daily_solar_energy(self) -> None:
-        """Integrate the real solar production power sensor → exact daily kWh."""
+        """Integrate the real solar production power sensor → exact daily kWh.
+
+        Trapezoidal rule: averages the previous and current sample so a ramping
+        production curve is not systematically miscounted (left-Riemann bias).
+        """
         ctrl = self._controller
         if not ctrl.solar_production_sensor:
             return
         power_kw = self._read_power_kw(ctrl.solar_production_sensor)
         if power_kw is None:
             self._daily_solar_last_time = None
+            self._daily_solar_last_power_kw = None
             return
+        power_kw = max(0.0, power_kw)
         now = monotonic()
-        if self._daily_solar_last_time is not None:
+        if self._daily_solar_last_time is not None and self._daily_solar_last_power_kw is not None:
             dt_hours = (now - self._daily_solar_last_time) / 3600.0
             if dt_hours > 0:
-                ctrl._daily_solar_energy_kwh += max(0.0, power_kw) * dt_hours
+                avg_kw = (self._daily_solar_last_power_kw + power_kw) / 2.0
+                ctrl._daily_solar_energy_kwh += avg_kw * dt_hours
         self._daily_solar_last_time = now
+        self._daily_solar_last_power_kw = power_kw
 
     async def accumulate_daily_home_energy(self) -> None:
-        """Integrate the real household consumption power sensor → exact daily kWh."""
+        """Integrate the real household consumption power sensor → exact daily kWh.
+
+        Trapezoidal rule: averages the previous and current sample so a ramping
+        load curve is not systematically miscounted (left-Riemann bias).
+        """
         ctrl = self._controller
         if not ctrl.household_consumption_sensor:
             return
         power_kw = self._read_power_kw(ctrl.household_consumption_sensor)
         if power_kw is None:
             self._daily_home_last_time = None
+            self._daily_home_last_power_kw = None
             return
+        power_kw = max(0.0, power_kw)
         now = monotonic()
-        if self._daily_home_last_time is not None:
+        if self._daily_home_last_time is not None and self._daily_home_last_power_kw is not None:
             dt_hours = (now - self._daily_home_last_time) / 3600.0
             if dt_hours > 0:
-                ctrl._daily_home_energy_kwh += max(0.0, power_kw) * dt_hours
+                avg_kw = (self._daily_home_last_power_kw + power_kw) / 2.0
+                ctrl._daily_home_energy_kwh += avg_kw * dt_hours
         self._daily_home_last_time = now
+        self._daily_home_last_power_kw = power_kw
 
     async def accumulate_daily_grid_energy(self) -> None:
         """Integrate the net grid meter → exact daily import/export kWh.
@@ -325,17 +348,41 @@ class ConsumptionTracker:
         grid_w = ctrl._apply_meter_transform(self._hass.states.get(ctrl.consumption_sensor))
         if grid_w is None:
             self._daily_grid_last_time = None
+            self._daily_grid_last_power_kw = None
             return
         power_kw = grid_w / 1000.0
         now = monotonic()
-        if self._daily_grid_last_time is not None:
+        # Trapezoidal rule with zero-crossing split: when the meter sign flips
+        # between samples (import↔export), the interval is split at the crossing so
+        # each half is booked to the correct side instead of misclassifying the
+        # whole interval by the start sample's sign.
+        if self._daily_grid_last_time is not None and self._daily_grid_last_power_kw is not None:
             dt_hours = (now - self._daily_grid_last_time) / 3600.0
             if dt_hours > 0:
-                if power_kw >= 0:
-                    ctrl._daily_grid_import_energy_kwh += power_kw * dt_hours
+                prev_kw = self._daily_grid_last_power_kw
+                curr_kw = power_kw
+                if (prev_kw >= 0) == (curr_kw >= 0):
+                    kwh = (prev_kw + curr_kw) / 2.0 * dt_hours
+                    if kwh >= 0:
+                        ctrl._daily_grid_import_energy_kwh += kwh
+                    else:
+                        ctrl._daily_grid_export_energy_kwh += -kwh
                 else:
-                    ctrl._daily_grid_export_energy_kwh += -power_kw * dt_hours
+                    frac = abs(prev_kw) / (abs(prev_kw) + abs(curr_kw))
+                    dt_first = dt_hours * frac
+                    dt_second = dt_hours - dt_first
+                    kwh_first = prev_kw / 2.0 * dt_first
+                    kwh_second = curr_kw / 2.0 * dt_second
+                    if kwh_first >= 0:
+                        ctrl._daily_grid_import_energy_kwh += kwh_first
+                    else:
+                        ctrl._daily_grid_export_energy_kwh += -kwh_first
+                    if kwh_second >= 0:
+                        ctrl._daily_grid_import_energy_kwh += kwh_second
+                    else:
+                        ctrl._daily_grid_export_energy_kwh += -kwh_second
         self._daily_grid_last_time = now
+        self._daily_grid_last_power_kw = power_kw
 
     # ------------------------------------------------------------------
     # Consumption history queries

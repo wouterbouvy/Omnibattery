@@ -3,6 +3,7 @@
 ## [2.0.1] - 2026-06-01
 
 ### Added
+- **Catalan translation**: Added `translations/ca.json` with full UI translation to Catalan.
 - **Solar Power sensor (Venus D/A)**: New per-battery `sensor.*_solar_power` summing MPPT inputs into one DC-coupled PV figure (W). vA/vD only, enabled by default. [`const.py`](custom_components/marstek_venus_energy_manager/const.py), [`calculated_sensors.py`](custom_components/marstek_venus_energy_manager/calculated_sensors.py).
 - **Battery Cell Power sensor (Venus D/A)**: New per-battery `sensor.*_battery_cell_power` = `battery_power + solar`, the real cell flow after adding back DC PV. vA/vD only, enabled by default.
 - **Home Consumption system sensor**: New `sensor.marstek_venus_system_home_consumption` (W) exposing the flow diagram's derived home load; the **Home** node opens it when no household sensor is configured. [`aggregate_sensors.py`](custom_components/marstek_venus_energy_manager/aggregate_sensors.py).
@@ -17,6 +18,7 @@
 - **"Active batteries" chip showed only the direction word**: Chip now appends the active battery name(s), e.g. "Discharging: Battery 1" (long lists ellipsize).
 - **Dashboard control sliders disagreed with the integration (e.g. 62% vs 60%)**: Slider `min` is floored to a step boundary so the grid matches HA's number slider, and values are clamped to the entity's real `[min, max]`.
 - **Grid-at-min-SOC daily counter used a hardcoded cycle step**: `_daily_grid_at_min_soc_kwh` now integrates over real elapsed time (was a fixed 2.5 s, over-counting ~25%) and resets across gaps >10 s. [`__init__.py`](custom_components/marstek_venus_energy_manager/__init__.py).
+- **Daily solar/home/grid energy totals used left-Riemann integration**: Now trapezoidal, and the grid total splits at the import↔export zero-crossing so a sign flip between samples is no longer misclassified onto one side. [`consumption_tracker.py`](custom_components/marstek_venus_energy_manager/consumption_tracker.py).
 - **Solar Charge Delay permanently unlocked by a transient forecast blip**: A momentarily unavailable forecast now holds the delay through a 300 s grace window instead of unlocking for the day; toggling the switch off→on re-evaluates from scratch. [`__init__.py`](custom_components/marstek_venus_energy_manager/__init__.py).
 
 ### Changed
