@@ -6,81 +6,61 @@ La carga predictiva necesita saber cuánta energía consume tu hogar cada día p
 
 ## Qué mide el consumo estimado
 
-La integración soporta dos métodos de acumulación según si se ha configurado o no un **sensor de consumo del hogar** opcional.
+El estimado es el **consumo total del hogar durante la ventana solar+batería** — las horas fuera de la franja de carga de red, cuando se espera que la batería cubra la casa. Se promedia sobre los últimos 7 días.
 
-### Método 1 — Descarga de batería + demanda insatisfecha (por defecto)
+### Origen del consumo del hogar
 
-Cuando no hay sensor de consumo del hogar configurado, el consumo estimado de un día es la suma de dos componentes:
+La potencia del hogar de cada ciclo proviene de una de dos fuentes, por orden de preferencia:
+
+1. **Sensor de consumo del hogar** (opcional) — un sensor de potencia (W o kW) que mide el consumo eléctrico total. Si está configurado, se lee directamente.
+2. **Derivado** (por defecto, sin sensor extra) — calculado a partir de valores que la integración ya tiene:
+
+    ```
+    hogar = red + Σ(potencia AC de baterías) + solar
+    ```
+
+    Es el mismo valor que muestra el diagrama de flujo de energía y el sensor **`sensor.marstek_venus_system_home_consumption`** (Consumo de la Casa, W). La FV acoplada en DC (MPPT) no aparece aquí — ya está neteada en la potencia AC de cada batería en el inversor.
+
+Ambas fuentes miden la misma magnitud (carga total de la casa), así que la carga predictiva se comporta igual con o sin sensor dedicado. El sensor del hogar es ahora puramente un **override de precisión** opcional.
+
+### Dispositivos excluidos / adicionales
+
+Si has configurado [dispositivos excluidos o adicionales](excluded-devices.md), la potencia del hogar se corrige antes de acumular:
+
+- **Excluido** (`included_in_consumption = true`): el dispositivo ya está en la lectura del hogar/red pero la batería no debe alimentarlo → su potencia se **resta**.
+- **Adicional** (`included_in_consumption = false`): el dispositivo no es visible para la lectura del hogar pero la batería sí debe cubrirlo → su potencia se **suma**.
+
+---
+
+## Acumulación en tiempo real
+
+En cada ciclo de control (dirigido por eventos, a la cadencia del sensor de red), la potencia del hogar se integra en un acumulador diario **solo mientras `is_in_consumption_window()` es verdadero**: las 24 horas completas si no hay franja de carga configurada, o las horas fuera de la franja de carga en los días de la franja. Este acotamiento garantiza que la ventana medida coincide con lo que la carga predictiva espera al proyectar después la demanda restante.
 
 ```
-Consumo del día = Descarga real de la batería + Demanda insatisfecha (red a min SOC)
+incremento (kWh) = potencia_hogar (W) × Δt (s) / 3 600 000
 ```
 
-#### Descarga real de la batería
-
-La energía que la batería ha descargado durante el día, leída directamente de los coordinadores de cada batería (`total_daily_discharging_energy`). Este valor se resetea a medianoche según el reloj interno de la batería.
-
-#### Demanda insatisfecha — Red a SOC mínimo
-
-Cuando **todas las baterías están al SOC mínimo** y ya no pueden descargar más, el hogar tiene que tirar de la red para cubrir su consumo. Esa energía importada de la red es consumo real del hogar que la batería no pudo atender.
-
-La integración la acumula en tiempo real en cada ciclo de control (dirigido por eventos, a la cadencia del sensor de red) mientras se cumplan estas condiciones simultáneamente:
-
-| Condición | Detalle |
-|---|---|
-| Todas las baterías en SOC mínimo | Ninguna batería disponible para descargar |
-| No hay carga de red activa | El sistema no está en modo carga predictiva/precio dinámico |
-| Dentro de una franja de descarga | Hay una franja activa, o no hay franjas configuradas |
-| La red está importando | El sensor de red lee un valor positivo |
-
-Cuando se cumplen todas las condiciones, el acumulador crece proporcionalmente a la importación de red:
-
-```
-incremento (kWh) = potencia_red (W) × Δt (s) / 3 600 000
-```
-
-`Δt` es el tiempo real transcurrido desde la acumulación anterior (así se adapta a la cadencia variable dirigida por eventos). Un hueco mayor a 10 s —que significa que las condiciones no se cumplieron de forma continua— se trata como un reinicio y no se contabiliza energía a través de él.
-
-Este acumulador se expone como el sensor **`Grid at Min SOC`** (kWh) y se resetea a medianoche.
-
-### Método 2 — Sensor de consumo del hogar (opcional)
-
-Si se configura un **sensor de consumo del hogar** (un sensor de potencia en W o kW que mide el consumo eléctrico total del hogar), la integración lo integra directamente para construir el valor diario en lugar de usar el cálculo de descarga de batería + red a min SOC.
-
-La acumulación solo se ejecuta mientras `is_in_consumption_window()` es verdadero: las 24 horas completas cuando no hay franja de carga configurada, o las horas fuera de la franja de carga en los días de la franja. Este acotamiento garantiza que la ventana medida coincide con lo que la carga predictiva espera al usar después el promedio para proyectar la demanda restante.
-
-El valor diario acumulado se expone como el sensor **`Household Energy Today`** (kWh) y se resetea a medianoche.
+`Δt` es el tiempo real transcurrido desde la muestra anterior, así se adapta a la cadencia variable. El valor diario en curso se expone como el atributo `household_consumption_battery_window_kwh` en `binary_sensor.marstek_venus_system_predictive_charging_active`, y se persiste para sobrevivir reinicios dentro del mismo día.
 
 ---
 
 ## Captura diaria a las 23:55
 
-Cada día a las **23:55 (hora local)** la integración guarda el consumo del día calculando:
-
-```
-valor_del_día = descarga_batería_acumulada + grid_at_min_soc_acumulado
-```
-
-El valor solo se almacena si es ≥ 1,5 kWh (para descartar días sin datos significativos). Si es inferior, la entrada de ese día se omite del historial.
+Cada día a las **23:55 (hora local)** la integración guarda una instantánea del acumulador en el historial de 7 días antes de que se resetee a medianoche. El valor solo se almacena si es ≥ 1,5 kWh (para descartar días sin datos significativos).
 
 ---
 
 ## Historial de 7 días
 
-La integración mantiene un historial rodante de las últimas **7 entradas** con formato `(fecha, kWh)`. Este historial se persiste en disco para sobrevivir reinicios de Home Assistant.
+La integración mantiene un historial rodante de las últimas **7 entradas** con formato `(fecha, kWh)`, persistido en disco para sobrevivir reinicios de Home Assistant.
 
 ### Valor de reserva
 
-Mientras no haya 7 días reales acumulados (p. ej. recién instalada la integración), las entradas que falten se rellenan con el valor de reserva **`DEFAULT_BASE_CONSUMPTION_KWH = 5,0 kWh`**. Este valor actúa solo como marcador temporal y se reemplaza en cuanto hay datos reales disponibles.
+Mientras no haya 7 días reales acumulados (p. ej. recién instalada la integración), las entradas que falten se rellenan con el valor de reserva **`DEFAULT_BASE_CONSUMPTION_KWH = 5,0 kWh`**. Actúa solo como marcador temporal y se reemplaza en cuanto hay datos reales disponibles.
 
 ### Backfill desde el historial del recorder
 
-Al arrancar, la integración intenta recuperar automáticamente los días que le falten consultando el **recorder de Home Assistant**. Para cada día de los últimos 7, consulta:
-
-- `sensor.marstek_venus_system_daily_discharging_energy` — descarga de la batería
-- `sensor.marstek_venus_system_daily_grid_at_min_soc_energy` — demanda insatisfecha
-
-Y suma ambos valores exactamente igual que haría la captura de las 23:55. Esto garantiza que, aunque HA se haya reiniciado o la integración se acabe de instalar, el historial se construye con datos reales desde el primer momento.
+Al arrancar, la integración recupera los días que falten consultando el **recorder de Home Assistant** para el sensor de **Consumo de la Casa** (el sensor del hogar si está configurado, en caso contrario `sensor.marstek_venus_system_home_consumption`). Para cada día que falte integra el historial de ese sensor sobre la ventana de consumo, aplica los ajustes de dispositivos excluidos/adicionales, y almacena el resultado igual que haría la captura de las 23:55. Así el historial se construye con datos reales incluso tras un reinicio de HA o una instalación nueva.
 
 ---
 
@@ -99,26 +79,16 @@ donde `n` puede ser menor de 7 si aún no hay suficientes días reales (los valo
 ## Ejemplo completo
 
 ```
-Lunes:  batería descargó 4,2 kWh + red a min SOC 0,8 kWh = 5,0 kWh
-Martes: batería descargó 5,1 kWh + red a min SOC 0,0 kWh = 5,1 kWh
-Miércoles: batería descargó 3,8 kWh + red a min SOC 1,5 kWh = 5,3 kWh
-Jueves:    batería descargó 4,5 kWh + red a min SOC 0,3 kWh = 4,8 kWh
-Viernes:   batería descargó 4,9 kWh + red a min SOC 0,0 kWh = 4,9 kWh
-Sábado: batería descargó 6,1 kWh + red a min SOC 0,2 kWh = 6,3 kWh
-Domingo:batería descargó 5,5 kWh + red a min SOC 0,5 kWh = 6,0 kWh
+Lunes:     consumo del hogar (ventana batería) = 5,0 kWh
+Martes:    consumo del hogar (ventana batería) = 5,1 kWh
+Miércoles: consumo del hogar (ventana batería) = 5,3 kWh
+Jueves:    consumo del hogar (ventana batería) = 4,8 kWh
+Viernes:   consumo del hogar (ventana batería) = 4,9 kWh
+Sábado:    consumo del hogar (ventana batería) = 6,3 kWh
+Domingo:   consumo del hogar (ventana batería) = 6,0 kWh
 
 Consumo esperado = (5,0 + 5,1 + 5,3 + 4,8 + 4,9 + 6,3 + 6,0) / 7 = 5,34 kWh
 ```
-
-Sin el componente de red a min SOC (solo descarga), el promedio habría sido 4,87 kWh — un 9% menor, lo que podría haber llevado a no cargar lo suficiente.
-
----
-
-## Por qué importa el componente de red a min SOC
-
-Sin este ajuste, los días en que la batería se vacía antes de medianoche quedan **subestimados** en el historial: solo se registra la descarga de la batería, pero el consumo real del hogar fue mayor. La media resultante infravaloraría el consumo, y el sistema cargaría menos de lo necesario la noche siguiente.
-
-Al sumar la energía que entró de la red mientras todas las baterías estaban en SOC mínimo dentro de una franja de descarga, el historial refleja el **consumo total real del hogar**, no solo lo que la batería pudo cubrir.
 
 ---
 
@@ -126,7 +96,9 @@ Al sumar la energía que entró de la red mientras todas las baterías estaban e
 
 | Sensor | Descripción | Reset |
 |---|---|---|
-| `sensor.marstek_venus_system_daily_grid_at_min_soc_energy` | Energía acumulada de la red durante periodos de SOC mínimo | Medianoche (hora local) |
+| `sensor.marstek_venus_system_daily_grid_at_min_soc_energy` | Energía importada de la red mientras todas las baterías estaban en SOC mínimo dentro de una franja de descarga — demanda del hogar que la batería no pudo cubrir | Medianoche (hora local) |
+
+Este sensor **Grid at Min SOC** es informativo: muestra la demanda que la batería no atendió por estar vacía. Ya **no** se suma al consumo estimado (el consumo del hogar derivado ya captura la carga total de la casa, incluida la parte servida desde la red).
 
 El sensor `binary_sensor.marstek_venus_system_predictive_charging_active` expone en sus atributos el historial de consumo de los últimos 7 días y el número de entradas reales vs. valores de reserva, útil para verificar el estado del aprendizaje.
 

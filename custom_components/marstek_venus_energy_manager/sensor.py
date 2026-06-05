@@ -193,7 +193,13 @@ async def async_setup_entry(
     # Each is added only when its source sensor is configured.
     if controller and getattr(controller, "solar_production_sensor", None):
         entities.append(DailySolarEnergySensor(controller))
-    if controller and getattr(controller, "household_consumption_sensor", None):
+    # Added when a dedicated household sensor OR the (always-present) net grid
+    # meter is configured: with no household sensor the daily total is derived
+    # from grid + battery AC + solar, matching the power-flow Home Consumption sensor.
+    if controller and (
+        getattr(controller, "household_consumption_sensor", None)
+        or getattr(controller, "consumption_sensor", None)
+    ):
         entities.append(DailyHomeEnergySensor(controller))
     # Grid import/export are sign-split from the net consumption meter, which is
     # always configured, so these are always added.
@@ -1275,10 +1281,12 @@ class DailySolarEnergySensor(SensorEntity):
 
 
 class DailyHomeEnergySensor(SensorEntity):
-    """Exact daily home consumption (kWh), integrated from the real household power sensor.
+    """Exact daily home consumption (kWh), integrated from the household power.
 
-    Mirrors DailySolarEnergySensor but for the household_consumption_sensor. Unlike the
-    predictive-charging windowed accumulator, this integrates the full 24 h.
+    Uses the dedicated household_consumption_sensor when configured; otherwise the
+    value is derived from grid + battery AC + solar, matching the power-flow Home
+    Consumption sensor. Unlike the predictive-charging windowed accumulator, this
+    integrates the full 24 h.
     """
 
     _attr_has_entity_name = True

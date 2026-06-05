@@ -140,7 +140,8 @@ Disponibles bajo el prefijo `sensor.marstek_venus_system_*`, suman los valores d
 - `system_total_discharging_energy` — Energía total descargada (sistema)
 - `grid_at_min_soc` — Importación de red durante periodos en SOC mínimo (kWh)
 - `system_alarm_status` — Estado de alarma agregado de todas las baterías (`OK` / `Warning` / `Fault`); los atributos listan las condiciones activas por batería
-- `household_energy_today` — Consumo energético del hogar acumulado hoy a partir del sensor de potencia opcional, durante la franja solar+batería (kWh). Solo presente cuando hay un sensor de consumo del hogar configurado. Se reinicia a medianoche.
+- `system_home_consumption` — Consumo instantáneo del hogar (W). Lee el sensor del hogar si está configurado, en caso contrario lo deriva de `red + AC de baterías + solar`.
+- `system_daily_home_energy` — Consumo del hogar de hoy (kWh), integrado del valor de Consumo de la Casa anterior. Se reinicia a medianoche (hora local).
 
 ### Resumen de Configuración
 

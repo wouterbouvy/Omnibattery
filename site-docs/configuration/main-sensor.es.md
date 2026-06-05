@@ -50,22 +50,21 @@ También puedes dejarlo en blanco y configurarlo más tarde en esas secciones es
 
 Sensor de potencia (W o kW) que mide el consumo eléctrico total del hogar.
 
-Cuando está configurado, la integración integra la lectura del sensor en el tiempo — únicamente durante la **franja solar+batería** (fuera de la franja de carga desde red) — para obtener un valor diario en kWh. Esto sustituye al método de estimación por defecto, que deriva el consumo a partir de la descarga de la batería + importación de red en SOC mínimo.
+Este sensor es **opcional y actúa como override de precisión**. Por defecto la integración ya deriva el consumo del hogar de los valores que tiene (`red + AC de baterías + solar`), así que la carga predictiva y el retraso de carga funcionan sin él. Configurar un sensor dedicado solo reemplaza el valor derivado por una lectura directa.
 
 **Cuándo configurarlo:**
 
 - Tienes un pinzímetro, Shelly EM u otro dispositivo que mide la carga total del hogar.
-- Quieres que la carga predictiva y el retraso de carga solar usen datos de consumo reales.
-- Tu producción solar varía significativamente de semana en semana (semanas muy soleadas hacen que el método por defecto subestime la demanda real).
+- Quieres una medición directa en lugar de la derivada (p. ej. tus sensores de red/solar son ruidosos).
 
 **Cómo funciona:**
 
 | Modo | Fuente de consumo |
 |------|------------------|
 | Sensor configurado | Integración del sensor de potencia (W→kWh) durante la franja solar+batería |
-| Sin sensor | Descarga de batería + importación de red en SOC mínimo (comportamiento actual) |
+| Sin sensor (por defecto) | Consumo del hogar derivado: `red + AC de baterías + solar` (mismo valor que el sensor Consumo de la Casa) |
 
-La integración acumula energía únicamente durante la franja solar+batería (fuera de la franja de carga configurada). Si no hay franja configurada, acumula durante todo el día. El contador se reinicia a medianoche y sobrevive reinicios de HA.
+En ambos modos la integración acumula energía únicamente durante la franja solar+batería (fuera de la franja de carga configurada). Si no hay franja configurada, acumula durante todo el día. El contador se reinicia a medianoche y sobrevive reinicios de HA.
 
 El consumo diario resultante alimenta el mismo historial que leen la carga predictiva y el retraso de carga solar — no es necesaria ninguna configuración adicional en esas secciones.
 
@@ -73,6 +72,9 @@ El consumo diario resultante alimenta el mismo historial que leen la carga predi
     Se aceptan sensores en **W** y en **kW**. La integración lee el atributo `unit_of_measurement` y convierte automáticamente.
 
 ### Crear un sensor helper
+
+!!! note
+    La integración ya deriva el consumo del hogar con este mismo balance, así que un sensor helper **no es necesario**. Créalo solo si quieres una entidad independiente o una medición de hardware directa que sustituya al valor derivado.
 
 El consumo del hogar es el balance de todos los flujos de potencia:
 

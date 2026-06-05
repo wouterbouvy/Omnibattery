@@ -152,14 +152,16 @@ Available under the `sensor.marstek_venus_system_*` prefix, summing values acros
 - `system_total_discharging_energy` — Total system discharging energy
 - `grid_at_min_soc` — Grid import during min SOC periods (kWh)
 - `system_alarm_status` — Aggregated alarm state across all batteries (`OK` / `Warning` / `Fault`); attributes list active conditions per battery
-- `household_energy_today` — Today's household energy consumption accumulated from the optional household power sensor, during the solar+battery window (kWh). Only present when a household consumption sensor is configured. Resets at midnight.
+- `system_home_consumption` — Instantaneous home consumption (W). Reads the household sensor when configured, otherwise derives it from `grid + battery AC + solar`.
+- `system_daily_home_energy` — Today's home consumption (kWh), integrated from the Home Consumption value above. Resets at midnight (local time).
 - `system_battery_power` — Total system power
 - `system_battery_soc` — System average SOC
 - `system_total_charging_energy` — Total system charging energy
 - `system_total_discharging_energy` — Total system discharging energy
 - `grid_at_min_soc` — Grid import during min SOC periods (kWh)
 - `system_alarm_status` — Aggregated alarm state across all batteries (`OK` / `Warning` / `Fault`); attributes list active conditions per battery
-- `household_energy_today` — Today's household energy consumption accumulated from the optional household power sensor, during the solar+battery window (kWh). Only present when a household consumption sensor is configured. Resets at midnight.
+- `system_home_consumption` — Instantaneous home consumption (W). Reads the household sensor when configured, otherwise derives it from `grid + battery AC + solar`.
+- `system_daily_home_energy` — Today's home consumption (kWh), integrated from the Home Consumption value above. Resets at midnight (local time).
 
 ### Configuration Summary
 

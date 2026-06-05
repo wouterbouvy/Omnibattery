@@ -50,22 +50,21 @@ You can also leave it blank and configure it later in those specific sections.
 
 A power sensor (W or kW) that measures total household electricity consumption.
 
-When configured, the integration integrates the sensor reading over time — only during the **solar+battery window** (outside the charging time slot) — to produce a daily kWh figure. This replaces the default estimation method, which derives consumption from battery discharge + grid import at min SOC.
+This sensor is **optional and acts as a precision override**. By default the integration already derives your home consumption from the values it has (`grid + battery AC + solar`), so predictive charging and charge delay work without it. Configuring a dedicated sensor just replaces the derived value with a direct reading.
 
 **When to configure it:**
 
 - You have a clamp meter, Shelly EM, or similar device measuring total house load.
-- You want predictive charging and charge delay to use real consumption data.
-- Your solar production varies significantly week to week (high-solar weeks cause the default estimation to underestimate demand).
+- You want a direct measurement instead of the derived one (e.g. your grid/solar sensors are noisy).
 
 **How it works:**
 
 | Mode | Consumption source |
 |------|-------------------|
 | Sensor configured | Integration of the power sensor (W→kWh) during the solar+battery window |
-| No sensor | Battery discharge + grid import at min SOC (existing behaviour) |
+| No sensor (default) | Derived home consumption: `grid + battery AC + solar` (same value as the Home Consumption sensor) |
 
-The integration accumulates energy during the solar+battery window only (i.e. outside the configured charging time slot). If no time slot is configured, it accumulates all day. The counter resets at midnight and survives HA restarts.
+In both modes the integration accumulates energy during the solar+battery window only (i.e. outside the configured charging time slot). If no time slot is configured, it accumulates all day. The counter resets at midnight and survives HA restarts.
 
 The daily consumption figure feeds the same history that predictive charging and charge delay read — no additional configuration is needed in those sections.
 
@@ -73,6 +72,9 @@ The daily consumption figure feeds the same history that predictive charging and
     Both **W** and **kW** sensors are accepted. The integration reads the `unit_of_measurement` attribute and converts automatically.
 
 ### Creating a helper sensor
+
+!!! note
+    The integration already derives home consumption from this exact balance, so a helper sensor is **not required**. Build one only if you want a standalone entity or a direct hardware measurement to override the derived value.
 
 Household consumption is the balance of all power flows:
 

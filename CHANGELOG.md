@@ -11,6 +11,10 @@
 ### Fixed
 - **Disabling a control entity stopped the batteries**: The poll skips disabled entities, so turning off Set/Max Charge/Discharge Power (or SOC cutoffs) dropped their registers from `coordinator.data` and the control loop stalled. These control registers are now always polled, regardless of whether their number entity is disabled. [`coordinator.py`](custom_components/marstek_venus_energy_manager/coordinator.py).
 - **Cell voltage sensors stayed disabled on existing installs**: Min/Max Cell Voltage were switched to enabled-by-default, but entities the integration had already disabled kept `disabled_by=integration`. Config entry migration v4→v5 re-enables them; user-disabled entities are left untouched. [`__init__.py`](custom_components/marstek_venus_energy_manager/__init__.py), [`config_flow.py`](custom_components/marstek_venus_energy_manager/config_flow.py).
+- **Daily Home Consumption energy (kWh) didn't report without a household sensor**: `sensor.*_daily_home_energy` now instantiates and integrates the derived home load (grid + battery + solar) when no dedicated household sensor is configured, matching the Home Consumption power sensor. [`sensor.py`](custom_components/marstek_venus_energy_manager/sensor.py), [`consumption_tracker.py`](custom_components/marstek_venus_energy_manager/consumption_tracker.py).
+
+### Changed
+- **Predictive charging no longer needs a dedicated household sensor**: real-time consumption accumulation, the 23:55 daily capture, and recorder backfill now use the derived home consumption (grid + battery + solar) when none is configured, replacing the cruder battery-discharge+grid estimate. The household sensor stays an optional precision override. [`consumption_tracker.py`](custom_components/marstek_venus_energy_manager/consumption_tracker.py).
 
 ## [2.0.1b2] - 2026-06-04
 
