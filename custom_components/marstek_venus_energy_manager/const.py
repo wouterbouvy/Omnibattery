@@ -1959,6 +1959,14 @@ NORMAL_BALANCE_RECAL_CUTOFF_POWER_W = 10       # W: charge collapsed (BMS termin
 NORMAL_BALANCE_RECAL_CUTOFF_CYCLES = 5         # consecutive cycles to confirm the BMS cutoff
 NORMAL_BALANCE_RECAL_INVERTER_STANDBY = 1      # inverter_state raw value for Standby
 
+# BMS low-SOC discharge cutoff (low-SOC counterpart to NORMAL_BALANCE_RECAL_*).
+# Below this SOC the BMS may refuse to discharge on its own (protective cutoff,
+# e.g. a weak cell sagging under load) even though the reported SOC is still
+# above the configured min_soc. The battery then ACKs the discharge command but
+# delivers ~0W. Treat that as an expected BMS cutoff instead of a non-responsive
+# fault, so the battery stays in the PD pool.
+BMS_DISCHARGE_CUTOFF_SOC = 20                  # %: below this, refused discharge = BMS cutoff, not a fault
+
 # Active balance mode.
 # Once the battery has reached the top, keep the cells in the balancing window
 # with gentle charge/discharge micro-cycles instead of only resting at 100% SOC.

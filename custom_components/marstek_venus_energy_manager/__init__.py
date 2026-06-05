@@ -120,6 +120,7 @@ from .const import (
     NORMAL_BALANCE_RECAL_CUTOFF_POWER_W,
     NORMAL_BALANCE_RECAL_CUTOFF_CYCLES,
     NORMAL_BALANCE_RECAL_INVERTER_STANDBY,
+    BMS_DISCHARGE_CUTOFF_SOC,
     CONF_ACTIVE_BALANCE_MODE_ENABLED,
     CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
     DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
@@ -4131,15 +4132,20 @@ class ChargeDischargeController:
                 if discharge_power >= 100 and charge_power == 0:
                     actual_abs = abs(feedback["battery_power"])
                     if actual_abs < 0.10 * discharge_power:
-                        # Skip non-responsive recording if battery is at/near min-SOC:
-                        # the BMS internally enforces the cutoff even after an ACK, so 0W output
-                        # is expected behaviour, not a fault.
+                        # Skip non-responsive recording when the BMS is legitimately
+                        # refusing discharge: either at/near the configured min-SOC, or
+                        # anywhere below the low-SOC protective floor where the BMS may
+                        # cut discharge on its own (e.g. a weak cell sagging under load)
+                        # even though the reported SOC is still above min_soc. 0W output
+                        # is then expected behaviour, not a fault. Low-SOC counterpart to
+                        # the high-SOC BMS-cutoff handling.
                         current_soc = coordinator.data.get("battery_soc", 100) if coordinator.data else 100
-                        if current_soc <= coordinator.min_soc + 1:
+                        bms_cutoff_floor = max(coordinator.min_soc + 1, BMS_DISCHARGE_CUTOFF_SOC)
+                        if current_soc <= bms_cutoff_floor:
                             _LOGGER.debug(
-                                "[%s] No discharge delivered but SOC=%.1f%% is at/near min_soc=%d%% "
-                                "— BMS cutoff, not a fault",
-                                coordinator.name, current_soc, coordinator.min_soc,
+                                "[%s] No discharge delivered but SOC=%.1f%% is in the BMS "
+                                "low-SOC cutoff range (min_soc=%d%%, floor=%d%%) — not a fault",
+                                coordinator.name, current_soc, coordinator.min_soc, bms_cutoff_floor,
                             )
                         else:
                             self._non_responsive.record_non_delivery(coordinator, discharge_power, actual_abs)
