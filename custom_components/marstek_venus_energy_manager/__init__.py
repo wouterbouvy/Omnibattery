@@ -98,6 +98,8 @@ from .const import (
     CONF_METER_INVERTED,
     CONF_PREDICTIVE_SAFETY_MARGIN_KWH,
     DEFAULT_PREDICTIVE_SAFETY_MARGIN_KWH,
+    CONF_PREDICTIVE_GRID_CHARGE_MARGIN_PCT,
+    DEFAULT_PREDICTIVE_GRID_CHARGE_MARGIN_PCT,
     MULTI_BATTERY_DISCHARGE_CROSSOVER_W,
     MULTI_BATTERY_CHARGE_CROSSOVER_W,
     MULTI_BATTERY_HYSTERESIS_GAP,
@@ -547,6 +549,7 @@ class ChargeDischargeController:
         self._delay_soc_setpoint = config_entry.data.get(CONF_DELAY_SOC_SETPOINT, DEFAULT_DELAY_SOC_SETPOINT)
         self._balance_monitor_enabled = True
         self._predictive_safety_margin_kwh: float = config_entry.data.get(CONF_PREDICTIVE_SAFETY_MARGIN_KWH, DEFAULT_PREDICTIVE_SAFETY_MARGIN_KWH)
+        self._predictive_grid_charge_margin_pct: float = config_entry.data.get(CONF_PREDICTIVE_GRID_CHARGE_MARGIN_PCT, DEFAULT_PREDICTIVE_GRID_CHARGE_MARGIN_PCT)
         self._charge_delay_unlocked = False       # True when delay has been unlocked today
         self._delay_setpoint_reached = False      # True once SOC first reached the setpoint
         self._charge_delay_store: Store = Store(
@@ -1259,6 +1262,7 @@ class ChargeDischargeController:
         self._delay_soc_setpoint = self.config_entry.data.get(CONF_DELAY_SOC_SETPOINT, DEFAULT_DELAY_SOC_SETPOINT)
         self._balance_monitor_enabled = True
         self._predictive_safety_margin_kwh = self.config_entry.data.get(CONF_PREDICTIVE_SAFETY_MARGIN_KWH, DEFAULT_PREDICTIVE_SAFETY_MARGIN_KWH)
+        self._predictive_grid_charge_margin_pct = self.config_entry.data.get(CONF_PREDICTIVE_GRID_CHARGE_MARGIN_PCT, DEFAULT_PREDICTIVE_GRID_CHARGE_MARGIN_PCT)
         self._charge_delay_status["soc_setpoint"] = self._delay_soc_setpoint if self._delay_soc_setpoint_enabled else None
         self.charge_delay_enabled = self.config_entry.data.get(
             CONF_ENABLE_CHARGE_DELAY,
@@ -3125,7 +3129,11 @@ class ChargeDischargeController:
         _config_max_soc = min(_max_soc_values) if _max_soc_values else 95
         _gap_to_max_kwh = max(0.0, (_config_max_soc - avg_soc) / 100.0 * total_capacity_kwh)
         solar_surplus_kwh = max(0.0, solar_forecast_kwh - avg_consumption_kwh)
-        grid_charge_kwh = max(0.0, _gap_to_max_kwh - solar_surplus_kwh)
+        _grid_margin_factor = 1.0 + self._predictive_grid_charge_margin_pct / 100.0
+        grid_charge_kwh = min(
+            _gap_to_max_kwh,
+            max(0.0, _gap_to_max_kwh - solar_surplus_kwh) * _grid_margin_factor,
+        )
 
         return {
             "should_charge": should_charge,
@@ -3271,7 +3279,11 @@ class ChargeDischargeController:
             return None
 
         solar_surplus_kwh = max(0.0, solar_forecast_kwh - avg_consumption_kwh)
-        grid_charge_kwh = max(0.0, total_gap_kwh - solar_surplus_kwh)
+        margin_factor = 1.0 + self._predictive_grid_charge_margin_pct / 100.0
+        grid_charge_kwh = min(
+            total_gap_kwh,
+            max(0.0, total_gap_kwh - solar_surplus_kwh) * margin_factor,
+        )
 
         targets: dict = {}
         for c in coordinators_with_data:
@@ -5162,7 +5174,13 @@ class ChargeDischargeController:
                 remaining_solar_kwh = max(0.0, remaining_solar_kwh - remaining_consumption_kwh)
 
         # --- Net deficit ---
-        evening_deficit_kwh = max(0.0, energy_to_full_kwh - remaining_solar_kwh)
+        # Apply the configurable grid-charge margin so optimistic solar forecasts
+        # are hedged by booking extra cheap grid slots. Capped at energy_to_full.
+        margin_factor = 1.0 + self._predictive_grid_charge_margin_pct / 100.0
+        evening_deficit_kwh = min(
+            energy_to_full_kwh,
+            max(0.0, energy_to_full_kwh - remaining_solar_kwh) * margin_factor,
+        )
 
         if evening_deficit_kwh < EVENING_DEFICIT_THRESHOLD_KWH:
             _LOGGER.info(

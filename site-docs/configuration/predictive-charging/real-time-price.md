@@ -14,6 +14,7 @@ Unlike Dynamic Pricing mode, it requires no price forecast and no overnight eval
 | **Only discharge when price exceeds threshold** | (Optional) Price-gated discharge — see below |
 | **Maximum contracted power ICP (W)** | Maximum power when charging to avoid tripping the breaker (default 7000 W) |
 | **Solar forecast safety margin (kWh)** | Extra energy buffer added to the consumption forecast before deciding whether to charge (default 0 kWh) |
+| **Predictive grid charge margin (%)** | Tops up the grid-charge amount to hedge optimistic solar forecasts — e.g. a 2 kWh grid need at 50 % charges 3 kWh. Capped at the gap to max SOC (default 0 %) |
 
 ![Configuration form — Real-Time Price mode](../../assets/screenshots/configuration/predictive-charging/real-time-price-form.png){ width="650"  style="display: block; margin: 0 auto;"}
 

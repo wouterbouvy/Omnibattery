@@ -188,7 +188,8 @@
           "days": "Jours de la semaine",
           "solar_forecast_sensor": "Capteur de prévision solaire (kWh)",
           "max_contracted_power": "Puissance maximale souscrite ICP (W)",
-          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)"
+          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)",
+          "predictive_grid_charge_margin_pct": "Marge de charge réseau prédictive (%)"
         },
         "data_description": {
           "start_time": "Heure de début de la fenêtre de charge (ex : 01:00, tarif heures creuses)",
@@ -196,7 +197,8 @@
           "days": "Jours où la charge depuis le réseau est autorisée",
           "solar_forecast_sensor": "Capteur fournissant la prévision de production solaire en kWh (ex : Solcast). Avec panneaux solaires : configurez ce capteur — le système ne chargera depuis le réseau que si la prévision est insuffisante. Sans panneaux solaires : laissez vide — le système chargera quand l'énergie de la batterie est insuffisante pour la journée. Non requis si ce capteur a déjà été configuré à l'étape initiale — il sera utilisé automatiquement.",
           "max_contracted_power": "Puissance totale souscrite (ICP) en watts. Le système ne dépassera pas cette limite lors de la charge pour éviter de déclencher le disjoncteur",
-          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie."
+          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie.",
+          "predictive_grid_charge_margin_pct": "Pourcentage supplémentaire chargé depuis le réseau au-dessus du déficit solaire, pour couvrir des prévisions solaires optimistes. Ex. : un besoin réseau de 2 kWh à 50% charge 3 kWh. 0 pour désactiver (défaut). Plafonné à l'écart jusqu'au SOC max."
         }
       },
       "predictive_charging_mode": {
@@ -219,7 +221,8 @@
           "dp_price_discharge_control": "Décharger uniquement si le prix dépasse le seuil",
           "solar_forecast_sensor": "Capteur de prévision solaire (kWh)",
           "max_contracted_power": "Puissance maximale souscrite ICP (W)",
-          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)"
+          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)",
+          "predictive_grid_charge_margin_pct": "Marge de charge réseau prédictive (%)"
         },
         "data_description": {
           "price_integration_type": "Sélectionnez l'intégration domotique qui fournit les données de prix de l'électricité",
@@ -228,7 +231,8 @@
           "dp_price_discharge_control": "Si activé, la batterie ne se décharge que lorsque le prix actuel dépasse le seuil de prix maximum configuré. Si aucun seuil n'est configuré, la moyenne journalière calculée automatiquement depuis le capteur de prix est utilisée. Si des plages horaires de décharge sont configurées, les deux conditions doivent être remplies.",
           "solar_forecast_sensor": "Capteur fournissant la prévision de production solaire en kWh (ex : Solcast). Avec panneaux solaires : configurez ce capteur — le système ne chargera depuis le réseau que si la prévision est insuffisante. Sans panneaux solaires : laissez vide — le système chargera quand l'énergie de la batterie est insuffisante pour la journée. Non requis si ce capteur a déjà été configuré à l'étape initiale — il sera utilisé automatiquement.",
           "max_contracted_power": "Puissance totale souscrite (ICP) en watts. Le système ne dépassera pas cette limite lors de la charge pour éviter de déclencher le disjoncteur",
-          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie."
+          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie.",
+          "predictive_grid_charge_margin_pct": "Pourcentage supplémentaire chargé depuis le réseau au-dessus du déficit solaire, pour couvrir des prévisions solaires optimistes. Ex. : un besoin réseau de 2 kWh à 50% charge 3 kWh. 0 pour désactiver (défaut). Plafonné à l'écart jusqu'au SOC max."
         }
       },
       "realtime_price_config": {
@@ -241,7 +245,8 @@
           "rt_price_discharge_control": "Décharger uniquement si le prix dépasse le seuil",
           "solar_forecast_sensor": "Capteur de prévision solaire (kWh)",
           "max_contracted_power": "Puissance maximale souscrite ICP (W)",
-          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)"
+          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)",
+          "predictive_grid_charge_margin_pct": "Marge de charge réseau prédictive (%)"
         },
         "data_description": {
           "price_sensor": "Capteur dont l'état est le prix actuel de l'électricité. Tout capteur qui expose le prix de la période courante comme son état fonctionne.",
@@ -250,7 +255,8 @@
           "rt_price_discharge_control": "Si activé, la batterie ne se décharge que lorsque le prix actuel dépasse le seuil. Si des plages horaires de décharge sont configurées, les deux conditions doivent être remplies.",
           "solar_forecast_sensor": "Capteur fournissant les prévisions de production solaire en kWh. Non requis si vous avez déjà configuré ce capteur à l'étape initiale — il sera utilisé automatiquement.",
           "max_contracted_power": "Puissance totale souscrite (ICP) en watts. Le système ne dépassera pas cette limite lors de la charge pour éviter de déclencher le disjoncteur",
-          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie."
+          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie.",
+          "predictive_grid_charge_margin_pct": "Pourcentage supplémentaire chargé depuis le réseau au-dessus du déficit solaire, pour couvrir des prévisions solaires optimistes. Ex. : un besoin réseau de 2 kWh à 50% charge 3 kWh. 0 pour désactiver (défaut). Plafonné à l'écart jusqu'au SOC max."
         }
       },
       "weekly_full_charge": {
@@ -609,7 +615,8 @@
           "days": "Jours de la semaine",
           "solar_forecast_sensor": "Capteur de prévision solaire (kWh)",
           "max_contracted_power": "Puissance maximale souscrite ICP (W)",
-          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)"
+          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)",
+          "predictive_grid_charge_margin_pct": "Marge de charge réseau prédictive (%)"
         },
         "data_description": {
           "start_time": "Heure de début de la fenêtre de charge (ex : 01:00, tarif heures creuses)",
@@ -617,7 +624,8 @@
           "days": "Jours où la charge depuis le réseau est autorisée",
           "solar_forecast_sensor": "Capteur fournissant la prévision de production solaire en kWh (ex : Solcast). Avec panneaux solaires : configurez ce capteur — le système ne chargera depuis le réseau que si la prévision est insuffisante. Sans panneaux solaires : laissez vide — le système chargera quand l'énergie de la batterie est insuffisante pour la journée. Non requis si ce capteur a déjà été configuré à l'étape initiale — il sera utilisé automatiquement.",
           "max_contracted_power": "Puissance totale souscrite (ICP) en watts. Le système ne dépassera pas cette limite lors de la charge pour éviter de déclencher le disjoncteur",
-          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie."
+          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie.",
+          "predictive_grid_charge_margin_pct": "Pourcentage supplémentaire chargé depuis le réseau au-dessus du déficit solaire, pour couvrir des prévisions solaires optimistes. Ex. : un besoin réseau de 2 kWh à 50% charge 3 kWh. 0 pour désactiver (défaut). Plafonné à l'écart jusqu'au SOC max."
         }
       },
       "predictive_charging_mode": {
@@ -640,7 +648,8 @@
           "dp_price_discharge_control": "Décharger uniquement si le prix dépasse le seuil",
           "solar_forecast_sensor": "Capteur de prévision solaire (kWh)",
           "max_contracted_power": "Puissance maximale souscrite ICP (W)",
-          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)"
+          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)",
+          "predictive_grid_charge_margin_pct": "Marge de charge réseau prédictive (%)"
         },
         "data_description": {
           "price_integration_type": "Sélectionnez l'intégration domotique qui fournit les données de prix de l'électricité",
@@ -649,7 +658,8 @@
           "dp_price_discharge_control": "Si activé, la batterie ne se décharge que lorsque le prix actuel dépasse le seuil de prix maximum configuré. Si aucun seuil n'est configuré, la moyenne journalière calculée automatiquement depuis le capteur de prix est utilisée. Si des plages horaires de décharge sont configurées, les deux conditions doivent être remplies.",
           "solar_forecast_sensor": "Capteur fournissant la prévision de production solaire en kWh (ex : Solcast). Avec panneaux solaires : configurez ce capteur — le système ne chargera depuis le réseau que si la prévision est insuffisante. Sans panneaux solaires : laissez vide — le système chargera quand l'énergie de la batterie est insuffisante pour la journée. Non requis si ce capteur a déjà été configuré à l'étape initiale — il sera utilisé automatiquement.",
           "max_contracted_power": "Puissance totale souscrite (ICP) en watts. Le système ne dépassera pas cette limite lors de la charge pour éviter de déclencher le disjoncteur",
-          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie."
+          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie.",
+          "predictive_grid_charge_margin_pct": "Pourcentage supplémentaire chargé depuis le réseau au-dessus du déficit solaire, pour couvrir des prévisions solaires optimistes. Ex. : un besoin réseau de 2 kWh à 50% charge 3 kWh. 0 pour désactiver (défaut). Plafonné à l'écart jusqu'au SOC max."
         }
       },
       "realtime_price_config": {
@@ -662,7 +672,8 @@
           "rt_price_discharge_control": "Décharger uniquement si le prix dépasse le seuil",
           "solar_forecast_sensor": "Capteur de prévision solaire (kWh)",
           "max_contracted_power": "Puissance maximale souscrite ICP (W)",
-          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)"
+          "predictive_safety_margin_kwh": "Marge de sécurité prévision solaire (kWh)",
+          "predictive_grid_charge_margin_pct": "Marge de charge réseau prédictive (%)"
         },
         "data_description": {
           "price_sensor": "Capteur dont l'état est le prix actuel de l'électricité. Tout capteur qui expose le prix de la période courante comme son état fonctionne.",
@@ -671,7 +682,8 @@
           "rt_price_discharge_control": "Si activé, la batterie ne se décharge que lorsque le prix actuel dépasse le seuil. Si des plages horaires de décharge sont configurées, les deux conditions doivent être remplies.",
           "solar_forecast_sensor": "Capteur fournissant les prévisions de production solaire en kWh. Non requis si vous avez déjà configuré ce capteur à l'étape initiale — il sera utilisé automatiquement.",
           "max_contracted_power": "Puissance totale souscrite (ICP) en watts. Le système ne dépassera pas cette limite lors de la charge pour éviter de déclencher le disjoncteur",
-          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie."
+          "predictive_safety_margin_kwh": "Tampon d'énergie supplémentaire ajouté à la prévision de consommation. Utile si la prévision solaire est trop optimiste. Mettre à 0 pour désactiver (défaut). Limité à la capacité totale de la batterie.",
+          "predictive_grid_charge_margin_pct": "Pourcentage supplémentaire chargé depuis le réseau au-dessus du déficit solaire, pour couvrir des prévisions solaires optimistes. Ex. : un besoin réseau de 2 kWh à 50% charge 3 kWh. 0 pour désactiver (défaut). Plafonné à l'écart jusqu'au SOC max."
         }
       },
       "weekly_full_charge": {
@@ -1300,6 +1312,9 @@
       },
       "predictive_safety_margin_kwh": {
         "name": "Marge de Sécurité Prévision Solaire"
+      },
+      "predictive_grid_charge_margin_pct": {
+        "name": "Marge de Charge Réseau Prédictive"
       }
     },
     "button": {

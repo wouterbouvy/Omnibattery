@@ -200,7 +200,8 @@
           "days": "Días de la semana",
           "solar_forecast_sensor": "Sensor de predicción solar (kWh)",
           "max_contracted_power": "Potencia máxima contratada ICP (W)",
-          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)"
+          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)",
+          "predictive_grid_charge_margin_pct": "Margen de carga de red predictiva (%)"
         },
         "data_description": {
           "start_time": "Hora de inicio de la franja de carga (ej: 01:00, tarifa valle)",
@@ -208,7 +209,8 @@
           "days": "Días en los que se permite cargar desde red",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. Si no tienes paneles, déjalo vacío — el sistema cargará cuando la batería no tenga energía suficiente para el día. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "max_contracted_power": "Potencia total contratada (ICP) en vatios. El sistema no superará este límite al cargar para evitar que salte el diferencial",
-          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería."
+          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
+          "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."
         }
       },
       "dynamic_pricing_config": {
@@ -221,7 +223,8 @@
           "dp_price_discharge_control": "Descargar solo cuando el precio supere el umbral",
           "solar_forecast_sensor": "Sensor de predicción solar (kWh)",
           "max_contracted_power": "Potencia máxima contratada ICP (W)",
-          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)"
+          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)",
+          "predictive_grid_charge_margin_pct": "Margen de carga de red predictiva (%)"
         },
         "data_description": {
           "price_integration_type": "Selecciona tu integración de precios de electricidad",
@@ -230,7 +233,8 @@
           "dp_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el precio máximo configurado. Si no hay umbral configurado, usa el precio medio del día calculado automáticamente a partir del sensor de precios. Si hay franjas de descarga configuradas, ambas condiciones deben cumplirse.",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. Si no tienes paneles, déjalo vacío — el sistema cargará cuando la batería no tenga energía suficiente para el día. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "max_contracted_power": "Potencia total contratada (ICP) en vatios. El sistema no superará este límite al cargar para evitar que salte el diferencial",
-          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería."
+          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
+          "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."
         }
       },
       "realtime_price_config": {
@@ -243,7 +247,8 @@
           "rt_price_discharge_control": "Descargar solo cuando el precio supere el umbral",
           "solar_forecast_sensor": "Sensor de predicción solar (kWh)",
           "max_contracted_power": "Potencia máxima contratada ICP (W)",
-          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)"
+          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)",
+          "predictive_grid_charge_margin_pct": "Margen de carga de red predictiva (%)"
         },
         "data_description": {
           "price_sensor": "Sensor cuyo estado es el precio eléctrico actual (ej: sensor.esios_pvpc, sensor.nordpool_kwh_es_eur_3_10_0). Funciona con cualquier sensor que exponga el precio del periodo actual como su estado.",
@@ -252,7 +257,8 @@
           "rt_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el umbral (fijo o precio medio diario). Si hay franjas de descarga configuradas, ambas condiciones deben cumplirse.",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "max_contracted_power": "Potencia total contratada (ICP) en vatios. El sistema no superará este límite al cargar para evitar que salte el diferencial",
-          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería."
+          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
+          "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."
         }
       },
       "weekly_full_charge": {
@@ -625,7 +631,8 @@
           "days": "Días de la semana",
           "solar_forecast_sensor": "Sensor de predicción solar (kWh)",
           "max_contracted_power": "Potencia máxima contratada ICP (W)",
-          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)"
+          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)",
+          "predictive_grid_charge_margin_pct": "Margen de carga de red predictiva (%)"
         },
         "data_description": {
           "start_time": "Hora de inicio de la franja de carga (ej: 01:00, tarifa valle)",
@@ -633,7 +640,8 @@
           "days": "Días en los que se permite cargar desde red",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. Si no tienes paneles, déjalo vacío — el sistema cargará cuando la batería no tenga energía suficiente para el día. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "max_contracted_power": "Potencia total contratada (ICP) en vatios. El sistema no superará este límite al cargar para evitar que salte el diferencial",
-          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería."
+          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
+          "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."
         }
       },
       "dynamic_pricing_config": {
@@ -646,7 +654,8 @@
           "dp_price_discharge_control": "Descargar solo cuando el precio supere el umbral",
           "solar_forecast_sensor": "Sensor de predicción solar (kWh)",
           "max_contracted_power": "Potencia máxima contratada ICP (W)",
-          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)"
+          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)",
+          "predictive_grid_charge_margin_pct": "Margen de carga de red predictiva (%)"
         },
         "data_description": {
           "price_integration_type": "Selecciona tu integración de precios de electricidad",
@@ -655,7 +664,8 @@
           "dp_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el precio máximo configurado. Si no hay umbral configurado, usa el precio medio del día calculado automáticamente a partir del sensor de precios. Si hay franjas de descarga configuradas, ambas condiciones deben cumplirse.",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. Si no tienes paneles, déjalo vacío — el sistema cargará cuando la batería no tenga energía suficiente para el día. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "max_contracted_power": "Potencia total contratada (ICP) en vatios. El sistema no superará este límite al cargar para evitar que salte el diferencial",
-          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería."
+          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
+          "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."
         }
       },
       "realtime_price_config": {
@@ -668,7 +678,8 @@
           "rt_price_discharge_control": "Descargar solo cuando el precio supere el umbral",
           "solar_forecast_sensor": "Sensor de predicción solar (kWh)",
           "max_contracted_power": "Potencia máxima contratada ICP (W)",
-          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)"
+          "predictive_safety_margin_kwh": "Margen de seguridad de previsión solar (kWh)",
+          "predictive_grid_charge_margin_pct": "Margen de carga de red predictiva (%)"
         },
         "data_description": {
           "price_sensor": "Sensor cuyo estado es el precio eléctrico actual (ej: sensor.esios_pvpc, sensor.nordpool_kwh_es_eur_3_10_0). Funciona con cualquier sensor que exponga el precio del periodo actual como su estado.",
@@ -677,7 +688,8 @@
           "rt_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el umbral (fijo o precio medio diario). Si hay franjas de descarga configuradas, ambas condiciones deben cumplirse.",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "max_contracted_power": "Potencia total contratada (ICP) en vatios. El sistema no superará este límite al cargar para evitar que salte el diferencial",
-          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería."
+          "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
+          "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."
         }
       },
       "weekly_full_charge": {
@@ -1306,6 +1318,9 @@
       },
       "predictive_safety_margin_kwh": {
         "name": "Margen de Seguridad Previsión Solar"
+      },
+      "predictive_grid_charge_margin_pct": {
+        "name": "Margen de Carga de Red Predictiva"
       }
     },
     "button": {

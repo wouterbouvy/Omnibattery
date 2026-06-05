@@ -20,6 +20,7 @@ Automatically selects the **cheapest hours of the day** to cover the calculated 
 | **Maximum contracted grid power ICP (W)** | Grid limit used to calculate required charging duration |
 | **Only discharge when price is above threshold** | (Optional) Price-gated discharge — see below |
 | **Solar forecast safety margin (kWh)** | (Optional) Extra energy buffer added to consumption forecast before deciding whether to charge (default 0 kWh) |
+| **Predictive grid charge margin (%)** | (Optional) Tops up the grid-charge amount to hedge optimistic solar forecasts — e.g. a 2 kWh grid need at 50 % charges 3 kWh. Capped at the gap to max SOC (default 0 %) |
 
 ![Configuration form — Dynamic Pricing mode](../../assets/screenshots/configuration/predictive-charging/dynamic-pricing-form.png){ width="650"  style="display: block; margin: 0 auto;"}
 

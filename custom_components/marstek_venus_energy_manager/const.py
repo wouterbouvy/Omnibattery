@@ -1888,6 +1888,13 @@ DEFAULT_BASE_CONSUMPTION_KWH = 5.0  # Fallback when no consumption history avail
 CONF_PREDICTIVE_SAFETY_MARGIN_KWH = "predictive_safety_margin_kwh"
 DEFAULT_PREDICTIVE_SAFETY_MARGIN_KWH = 0.0  # kWh added to consumption forecast; 0 = no margin
 
+# Predictive charging grid-charge margin
+# Extra % charged from grid on top of the solar-deficit, to hedge against
+# optimistic solar forecasts / worse-than-expected weather. 0 = no margin.
+# Capped so the charge never exceeds the gap to max SOC.
+CONF_PREDICTIVE_GRID_CHARGE_MARGIN_PCT = "predictive_grid_charge_margin_pct"
+DEFAULT_PREDICTIVE_GRID_CHARGE_MARGIN_PCT = 0.0
+
 # Re-evaluation thresholds
 SOC_REEVALUATION_THRESHOLD = 30  # Re-evaluate every 30% SOC drop
 
@@ -2317,6 +2324,17 @@ CONFIG_NUMBER_DEFINITIONS = [
         "unit": "kWh",
         "default": DEFAULT_PREDICTIVE_SAFETY_MARGIN_KWH,
         "icon": "mdi:solar-power-variant",
+        "condition": CONF_ENABLE_PREDICTIVE_CHARGING,
+    },
+    {
+        "key": CONF_PREDICTIVE_GRID_CHARGE_MARGIN_PCT,
+        "name": "Predictive Grid Charge Margin",
+        "min": 0.0,
+        "max": 100.0,
+        "step": 5.0,
+        "unit": "%",
+        "default": DEFAULT_PREDICTIVE_GRID_CHARGE_MARGIN_PCT,
+        "icon": "mdi:transmission-tower-import",
         "condition": CONF_ENABLE_PREDICTIVE_CHARGING,
     },
 ]
