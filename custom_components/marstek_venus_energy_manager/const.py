@@ -341,7 +341,7 @@ SENSOR_DEFINITIONS = [
         "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
-        "scan_interval": "medium"
+        "scan_interval": "high"
     },
     {
         # Minimum cell voltage 
@@ -355,7 +355,7 @@ SENSOR_DEFINITIONS = [
         "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
-        "scan_interval": "medium"
+        "scan_interval": "high"
     },
     {
         # Fault status bits indicating various device faults
@@ -916,7 +916,7 @@ SENSOR_DEFINITIONS_V3 = [
         "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
-        "scan_interval": "medium",
+        "scan_interval": "high",
     },
     {
         "name": "Min Cell Voltage",
@@ -929,7 +929,7 @@ SENSOR_DEFINITIONS_V3 = [
         "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
-        "scan_interval": "medium",
+        "scan_interval": "high",
     },
     {
         "name": "Battery Cycle Count",
@@ -1514,7 +1514,7 @@ SENSOR_DEFINITIONS_VA = [
         "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
-        "scan_interval": "medium",
+        "scan_interval": "high",
     },
     {
         "name": "Min Cell Voltage",
@@ -1527,7 +1527,7 @@ SENSOR_DEFINITIONS_VA = [
         "enabled_by_default": True,
         "data_type": "int16",
         "precision": 3,
-        "scan_interval": "medium",
+        "scan_interval": "high",
     },
     {
         "name": "WiFi Signal Strength",
