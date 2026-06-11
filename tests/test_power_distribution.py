@@ -1,28 +1,30 @@
 """Characterization tests for the PD load-sharing cluster.
 
-These pin the *current* behavior of three methods on the controller so the
-upcoming power_distribution.py extraction can be proven to change nothing:
+These pin the behavior of three methods on PowerDistribution so the extraction
+from ChargeDischargeController is proven cero-cambio-funcional:
     _distribute_power_by_limits   (proportional allocation)
     _select_batteries_for_operation (min-battery selection + hysteresis + holds)
     _rebalance_expired_load_sharing_hold (deadband hold release)
 
-No hardware, no real Home Assistant. The controller is built with
-``ChargeDischargeController.__new__`` and only the attributes/collaborators the
-three methods touch are set. The per-battery limit primitive
-``_battery_power_limit`` stays on the controller (it is NOT part of this
-extraction); it is exercised for real here but configured to resolve to an
+No hardware, no real Home Assistant. ``_build`` constructs PowerDistribution
+with a stub controller exposing only the attributes/collaborators the cluster
+reads. The per-battery limit primitives (``_battery_power_limit`` /
+``_clamp_to_system_capacity``) stay on the controller; here they resolve to an
 identity on each coordinator's ``max_charge_power`` / ``max_discharge_power``
-(no active slot, taper not applicable because ``max_soc`` < 100).
+with no system cap. The active-battery lists also live on the controller (read
+via ``pd._controller``); the wall-clock split holds live on PowerDistribution.
 
-When the cluster moves to power_distribution.py, only ``_build`` is retargeted
-to construct ``PowerDistribution`` with a stub controller; the assertions below
-stay identical, which is the cero-cambio-funcional proof.
+These same assertions ran green against the real controller before the move
+(only ``_build`` changed), which is the no-change proof.
 """
 from __future__ import annotations
 
 import time
+from types import SimpleNamespace
 
-from custom_components.marstek_venus_energy_manager import ChargeDischargeController
+from custom_components.marstek_venus_energy_manager.power_distribution import (
+    PowerDistribution,
+)
 
 
 # ----------------------------------------------------------------------
@@ -53,30 +55,44 @@ def _coord(name, limit, *, soc=50, charge_energy=0.0, discharge_energy=0.0):
 def _build(coords, *, active_charge=None, active_discharge=None,
            charge_holds=None, discharge_holds=None, previous_power=0,
            available=None, set_calls=None):
-    """Build a controller with only the attrs/collaborators the cluster reads."""
-    c = ChargeDischargeController.__new__(ChargeDischargeController)
-    c.enable_system_power_limits = False
-    c.coordinators = list(coords)
-    c.previous_power = previous_power
-    c._active_charge_batteries = list(active_charge or [])
-    c._active_discharge_batteries = list(active_discharge or [])
-    c._charge_selection_hold_until = dict(charge_holds or {})
-    c._discharge_selection_hold_until = dict(discharge_holds or {})
+    """Build a PowerDistribution with a stub controller exposing only the
+    collaborators/attrs the cluster reads.
 
-    # Collaborators that stay on the controller (excluded from this extraction),
-    # stubbed so _battery_power_limit resolves to an identity on the coordinator
-    # power attrs and the I/O paths are observable.
-    c._get_active_slot = lambda coordinator, kind: None
-    c._is_active_balance_mode_running = lambda coordinator: False
-    c._get_available_batteries = lambda is_charging, *a, **k: list(
-        available if available is not None else coords
+    ``_battery_power_limit`` and ``_clamp_to_system_capacity`` stay on the
+    controller; here they resolve to an identity on each coordinator's power
+    limit with no system cap (matching ``enable_system_power_limits=False`` in
+    the pre-extraction characterization). The active-battery lists live on the
+    controller, so assertions read them via ``pd._controller``; the wall-clock
+    split holds live on the PowerDistribution instance itself.
+    """
+    def _limit(coordinator, is_charging):
+        return coordinator.max_charge_power if is_charging else coordinator.max_discharge_power
+
+    def _clamp(power, batteries, is_charging):
+        return min(power, sum(_limit(c, is_charging) for c in batteries))
+
+    controller = SimpleNamespace(
+        previous_power=previous_power,
+        coordinators=list(coords),
+        _active_charge_batteries=list(active_charge or []),
+        _active_discharge_batteries=list(active_discharge or []),
+        _battery_power_limit=_limit,
+        _clamp_to_system_capacity=_clamp,
+        _get_available_batteries=lambda is_charging, *a, **k: list(
+            available if available is not None else coords
+        ),
+        _log_power_command_plan=lambda **k: None,
+        _is_active_balance_mode_running=lambda coordinator: False,
     )
-    c._log_power_command_plan = lambda **k: None
     if set_calls is not None:
         async def _set(coordinator, charge, discharge):
             set_calls.append((coordinator.name, charge, discharge))
-        c._set_battery_power = _set
-    return c
+        controller._set_battery_power = _set
+
+    pd = PowerDistribution(SimpleNamespace(), SimpleNamespace(data={}), controller)
+    pd._charge_selection_hold_until = dict(charge_holds or {})
+    pd._discharge_selection_hold_until = dict(discharge_holds or {})
+    return pd
 
 
 # ----------------------------------------------------------------------
@@ -147,8 +163,8 @@ def test_select_zero_power_clears_state():
     a = _coord("a", 2500)
     c = _build([a], active_discharge=[a], discharge_holds={a: time.monotonic() + 100})
     assert c._select_batteries_for_operation(0, [a], is_charging=False) == []
-    assert c._active_discharge_batteries == []
-    assert c._active_charge_batteries == []
+    assert c._controller._active_discharge_batteries == []
+    assert c._controller._active_charge_batteries == []
     assert c._discharge_selection_hold_until == {}
 
 
@@ -156,8 +172,8 @@ def test_select_single_battery_charge_sets_active():
     a = _coord("a", 2500)
     c = _build([a])
     assert c._select_batteries_for_operation(500, [a], is_charging=True) == [a]
-    assert c._active_charge_batteries == [a]
-    assert c._active_discharge_batteries == []
+    assert c._controller._active_charge_batteries == [a]
+    assert c._controller._active_discharge_batteries == []
 
 
 def test_select_discharge_low_power_picks_one_highest_soc():
@@ -165,7 +181,7 @@ def test_select_discharge_low_power_picks_one_highest_soc():
     c = _build([a, b])
     # 1000 W <= 2500*0.6 activation -> single battery, highest SOC drained first.
     assert c._select_batteries_for_operation(1000, [a, b], is_charging=False) == [a]
-    assert c._active_discharge_batteries == [a]
+    assert c._controller._active_discharge_batteries == [a]
 
 
 def test_select_discharge_high_power_picks_two_and_refreshes_holds():
@@ -173,7 +189,7 @@ def test_select_discharge_high_power_picks_two_and_refreshes_holds():
     c = _build([a, b])
     selected = c._select_batteries_for_operation(4000, [a, b], is_charging=False)
     assert set(selected) == {a, b}
-    assert set(c._active_discharge_batteries) == {a, b}
+    assert set(c._controller._active_discharge_batteries) == {a, b}
     # Split-load holds refreshed into the future for both batteries.
     now = time.monotonic()
     assert set(c._discharge_selection_hold_until) == {a, b}
@@ -184,7 +200,7 @@ def test_select_charge_picks_lowest_soc_first():
     a, b = _coord("a", 2500, soc=20), _coord("b", 2500, soc=80)
     c = _build([a, b])
     assert c._select_batteries_for_operation(1000, [a, b], is_charging=True) == [a]
-    assert c._active_charge_batteries == [a]
+    assert c._controller._active_charge_batteries == [a]
 
 
 def test_select_deactivation_hysteresis_retains_active_battery():
@@ -199,7 +215,7 @@ def test_select_below_deactivation_drops_active_battery():
     c = _build([a, b], active_discharge=[a, b])
     # 1000 W is below deactivation (1250) and b is not held -> dropped.
     assert c._select_batteries_for_operation(1000, [a, b], is_charging=False) == [a]
-    assert c._active_discharge_batteries == [a]
+    assert c._controller._active_discharge_batteries == [a]
 
 
 def test_select_wallclock_hold_retains_dropped_battery():
