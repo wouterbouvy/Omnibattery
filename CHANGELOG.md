@@ -6,6 +6,9 @@
 - **Automated test suite + CI**: first `pytest` coverage (consumption model, excluded-device and EV-charger logic), run on every PR. No user-facing change. [`tests/`](tests/), [`tests.yml`](.github/workflows/tests.yml).
 - **`external_loads` module extracted**: excluded-device and EV-charger logic moved out of `__init__.py` into [`external_loads.py`](custom_components/marstek_venus_energy_manager/external_loads.py); behavior unchanged, guarded by the new tests.
 
+### Changed
+- **`const.py` split into a `const/` package** (no behaviour change): per-model register/entity definitions moved to `registers_v2/v3/va/vd.py`, shared register infra to `registers_common.py`, and integration/feature constants to `integration_const.py`. `const/__init__.py` re-exports everything, so all existing imports keep working. [`const/`](custom_components/marstek_venus_energy_manager/const/).
+
 ## [2.0.3] - 2026-06-10
 
 ### Fixed
