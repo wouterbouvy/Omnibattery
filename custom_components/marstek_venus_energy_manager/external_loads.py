@@ -24,6 +24,20 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# Substrings that indicate an EV is actively charging, across supported languages.
+# Case-insensitive match against the sensor state string.
+# Add new entries here when a new language reports a different charging keyword.
+_CHARGING_SUBSTRINGS: frozenset[str] = frozenset({
+    "charg",     # EN/FR: charging, charge, chargement
+    "cargand",   # ES: cargando
+    "carreg",    # CA/PT: carregant, carregando
+    "laden",     # NL/DE: laden, ladend
+    "caricand",  # IT: caricando
+    "carica",    # IT: in carica
+    "ladd",      # SV: laddar, laddning
+    "lading",    # NO/DA: lading, oplading
+})
+
 
 class ExternalLoads:
     """Manages excluded-device and EV-charger load adjustments."""
@@ -161,8 +175,8 @@ class ExternalLoads:
     def check_ev_charger_state(self) -> tuple[bool, bool]:
         """Check state of EV chargers configured with no-telemetry mode.
 
-        Detects a charging state by looking for 'charg' (English) or 'cargand'
-        (Spanish) in the sensor state string (case-insensitive).
+        Detects a charging state by matching against _CHARGING_SUBSTRINGS
+        (case-insensitive). Covers EN, FR, ES, NL, DE, CA, PT, IT, SV, NO/DA.
 
         On the first cycle a charging state is detected, a 5-minute pause is
         started so the EV can grab as much current from the grid as it needs
@@ -194,7 +208,7 @@ class ExternalLoads:
                 continue
 
             state_lower = state.state.lower().strip()
-            is_charging = "charg" in state_lower or "cargand" in state_lower
+            is_charging = any(sub in state_lower for sub in _CHARGING_SUBSTRINGS)
 
             prev_charging = self._controller._ev_charging_states.get(sensor_id, False)
 

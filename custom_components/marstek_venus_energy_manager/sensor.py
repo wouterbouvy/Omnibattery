@@ -28,6 +28,7 @@ from .const import (
     CONF_ENABLE_PREDICTIVE_CHARGING,
     CONF_CHARGING_TIME_SLOT,
     CONF_SOLAR_FORECAST_SENSOR,
+    CONF_SOLAR_PRODUCTION_SENSOR,
     CONF_HOUSEHOLD_CONSUMPTION_SENSOR,
     CONF_MAX_CONTRACTED_POWER,
     CONF_ENABLE_WEEKLY_FULL_CHARGE,
@@ -681,6 +682,9 @@ class ConfigurationSummarySensor(SensorEntity):
         )
         attrs["solar_forecast_sensor"] = self._entity_or_not_configured(
             data.get(CONF_SOLAR_FORECAST_SENSOR)
+        )
+        attrs["solar_production_sensor"] = self._entity_or_not_configured(
+            data.get(CONF_SOLAR_PRODUCTION_SENSOR)
         )
         attrs["manual_mode_enabled"] = data.get(CONF_MANUAL_MODE_ENABLED, False)
 
