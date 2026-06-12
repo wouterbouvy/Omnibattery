@@ -37,11 +37,12 @@ def _state(value, unit="W"):
     return SimpleNamespace(state=str(value), attributes={"unit_of_measurement": unit})
 
 
-def _controller(excluded_devices, states=None, previous_power=0.0):
+def _controller(excluded_devices, states=None, previous_power=0.0, solar_production_sensor=None):
     controller_stub = SimpleNamespace(
         previous_power=previous_power,
         _excluded_included_adjustment=None,
         _solar_surplus_discharge_blocked=False,
+        solar_production_sensor=solar_production_sensor,
         _ev_charging_states={},
         _ev_pause_until={},
     )
@@ -136,30 +137,8 @@ def test_adjustment_not_included_adds_discharge():
     assert loads._controller._excluded_included_adjustment == pytest.approx(0.0)
 
 
-def test_adjustment_solar_surplus_always_zero_regardless_of_direction():
-    # allow_solar_surplus -> adjustment is always 0, regardless of previous_power sign.
-    # Discharge is blocked via _solar_surplus_discharge_blocked instead.
-    for previous_power in (100.0, -100.0, 0.0):
-        loads = _controller(
-            [_device(included_in_consumption=True, allow_solar_surplus=True)],
-            {"sensor.dev": _state(500)},
-            previous_power=previous_power,
-        )
-        assert loads.calculate_adjustment() == pytest.approx(0.0), f"previous_power={previous_power}"
-        assert loads._controller._excluded_included_adjustment == pytest.approx(0.0)
-
-
-def test_adjustment_solar_surplus_sets_discharge_blocked_when_active():
-    loads = _controller(
-        [_device(included_in_consumption=True, allow_solar_surplus=True)],
-        {"sensor.dev": _state(500)},
-    )
-    loads.calculate_adjustment()
-    assert loads._controller._solar_surplus_discharge_blocked is True
-
-
-def test_adjustment_solar_surplus_clears_discharge_blocked_when_idle():
-    # Device reports 0 W (not active) → flag must be False
+def test_adjustment_solar_surplus_no_solar_sensor_always_zero_no_discharge_blocked_when_idle():
+    # No solar sensor configured + device idle → no adjustment, no discharge block
     loads = _controller(
         [_device(included_in_consumption=True, allow_solar_surplus=True)],
         {"sensor.dev": _state(0)},
@@ -168,14 +147,80 @@ def test_adjustment_solar_surplus_clears_discharge_blocked_when_idle():
     assert loads._controller._solar_surplus_discharge_blocked is False
 
 
-def test_adjustment_solar_surplus_kw_sensor_converted_correctly():
-    # 1.5 kW sensor → treated as 1500 W → discharge blocked (> 10 W threshold)
+def test_adjustment_solar_surplus_no_solar_sensor_sets_discharge_blocked_when_active():
+    # No solar sensor configured + device active → no adjustment, discharge blocked
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=True)],
+        {"sensor.dev": _state(500)},
+    )
+    assert loads.calculate_adjustment() == pytest.approx(0.0)
+    assert loads._controller._solar_surplus_discharge_blocked is True
+
+
+def test_adjustment_solar_surplus_no_solar_sensor_kw_sensor_converted():
+    # No solar sensor; device sensor in kW → 1500 W active → discharge blocked
     loads = _controller(
         [_device(included_in_consumption=True, allow_solar_surplus=True)],
         {"sensor.dev": _state(1.5, unit="kW")},
     )
     assert loads.calculate_adjustment() == pytest.approx(0.0)
     assert loads._controller._solar_surplus_discharge_blocked is True
+
+
+def test_adjustment_solar_surplus_with_solar_sensor_device_exceeds_solar():
+    # device=4500 W, solar=1000 W → adjustment = 3500 W (device-over-solar portion)
+    # Battery discharges for home deficit; never for device's grid share.
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=True)],
+        {"sensor.dev": _state(4500), "sensor.solar": _state(1000)},
+        solar_production_sensor="sensor.solar",
+    )
+    assert loads.calculate_adjustment() == pytest.approx(3500.0)
+    assert loads._controller._excluded_included_adjustment == pytest.approx(3500.0)
+    assert loads._controller._solar_surplus_discharge_blocked is False
+
+
+def test_adjustment_solar_surplus_with_solar_sensor_solar_exceeds_device():
+    # device=500 W, solar=3000 W → adjustment = 0 (solar covers device entirely)
+    # PD sees real grid (likely export) → battery charges from surplus.
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=True)],
+        {"sensor.dev": _state(500), "sensor.solar": _state(3000)},
+        solar_production_sensor="sensor.solar",
+    )
+    assert loads.calculate_adjustment() == pytest.approx(0.0)
+    assert loads._controller._solar_surplus_discharge_blocked is False
+
+
+def test_adjustment_solar_surplus_with_solar_sensor_equal():
+    # device == solar → adjustment = 0
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=True)],
+        {"sensor.dev": _state(1000), "sensor.solar": _state(1000)},
+        solar_production_sensor="sensor.solar",
+    )
+    assert loads.calculate_adjustment() == pytest.approx(0.0)
+
+
+def test_adjustment_solar_surplus_with_solar_sensor_unavailable_fallback():
+    # Solar sensor unavailable → treat solar as 0 → full exclusion (device_power subtracted)
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=True)],
+        {"sensor.dev": _state(1000), "sensor.solar": _state("unavailable")},
+        solar_production_sensor="sensor.solar",
+    )
+    assert loads.calculate_adjustment() == pytest.approx(1000.0)
+    assert loads._controller._solar_surplus_discharge_blocked is False
+
+
+def test_adjustment_solar_surplus_with_solar_sensor_kw_units():
+    # Both sensors in kW → correct conversion: device=4.5 kW, solar=1.0 kW → 3500 W
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=True)],
+        {"sensor.dev": _state(4.5, unit="kW"), "sensor.solar": _state(1.0, unit="kW")},
+        solar_production_sensor="sensor.solar",
+    )
+    assert loads.calculate_adjustment() == pytest.approx(3500.0)
 
 
 def test_adjustment_included_no_surplus_kw_sensor_converted_correctly():

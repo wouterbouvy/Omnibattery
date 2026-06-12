@@ -97,12 +97,16 @@ class ExternalLoads:
         Logic:
         - included_in_consumption=True, allow_solar_surplus=False:
           → SUBTRACT device power (battery must not power this device)
-        - included_in_consumption=True, allow_solar_surplus=True:
-          → NO adjustment (PD sees real grid and reduces charging naturally)
-          → Sets _solar_surplus_discharge_blocked on the controller so the PD
-             section clamps new_power >= 0 while the device is active (>10 W).
-             This eliminates the sign-dependent discontinuity that caused
-             charge/discharge oscillation when device_power > solar_surplus.
+        - included_in_consumption=True, allow_solar_surplus=True, solar sensor configured:
+          → SUBTRACT max(0, device_power - solar_power_w): only the portion of device
+             demand that exceeds solar production. Battery covers home deficit normally
+             and charges from true solar surplus; it never discharges for the device.
+             Stable for all ratios of device_power to solar_power (no sign-dependent
+             discontinuity, no oscillation).
+        - included_in_consumption=True, allow_solar_surplus=True, no solar sensor:
+          → NO adjustment + sets _solar_surplus_discharge_blocked so the PD section
+             clamps new_power >= 0 while the device is active (>10 W). Fallback when
+             solar production is not available.
         - included_in_consumption=False:
           → ADD device power (battery should cover load the home sensor misses)
 
@@ -116,6 +120,7 @@ class ExternalLoads:
             return 0.0
 
         solar_surplus_blocks_discharge = False
+        solar_sensor_id = getattr(self._controller, "solar_production_sensor", None)
 
         total_adjustment = 0.0
         included_adjustment = 0.0  # Track included_in_consumption portion separately
@@ -145,15 +150,27 @@ class ExternalLoads:
 
                 if included_in_consumption:
                     if allow_solar_surplus:
-                        # Never adjust: PD sees real grid and reduces charging naturally.
-                        # Discharge is blocked separately via _solar_surplus_discharge_blocked,
-                        # removing the sign-dependent discontinuity that caused oscillation.
-                        if device_power > 10:
-                            solar_surplus_blocks_discharge = True
-                        _LOGGER.debug(
-                            "Excluded device %s consuming %.1fW (solar surplus → no adjustment, discharge_blocked=%s)",
-                            power_sensor, device_power, device_power > 10,
-                        )
+                        if solar_sensor_id:
+                            # Exclude only the portion of device demand that exceeds solar.
+                            # sensor_actual = grid − adjustment = home ± battery_net, so the
+                            # PD drives battery to cover home deficit and charge solar surplus
+                            # without ever discharging for the device.
+                            solar_power_w = self._read_sensor_w(solar_sensor_id)
+                            grid_portion = max(0.0, device_power - solar_power_w)
+                            total_adjustment += grid_portion
+                            included_adjustment += grid_portion
+                            _LOGGER.debug(
+                                "Excluded device %s consuming %.1fW, solar=%.1fW → excluding %.1fW (device-over-solar portion)",
+                                power_sensor, device_power, solar_power_w, grid_portion,
+                            )
+                        else:
+                            # No solar sensor: block discharge instead (battery idle while device active)
+                            if device_power > 10:
+                                solar_surplus_blocks_discharge = True
+                            _LOGGER.debug(
+                                "Excluded device %s consuming %.1fW (solar surplus, no solar sensor → discharge_blocked=%s)",
+                                power_sensor, device_power, device_power > 10,
+                            )
                     else:
                         total_adjustment += device_power
                         included_adjustment += device_power
@@ -171,6 +188,18 @@ class ExternalLoads:
         self._controller._excluded_included_adjustment = included_adjustment
         self._controller._solar_surplus_discharge_blocked = solar_surplus_blocks_discharge
         return total_adjustment
+
+    def _read_sensor_w(self, entity_id: str) -> float:
+        """Read a power sensor and return its value in watts. Returns 0.0 if unavailable."""
+        state = self._hass.states.get(entity_id)
+        if state is None or state.state in ("unknown", "unavailable"):
+            return 0.0
+        try:
+            raw = float(state.state)
+            unit = state.attributes.get("unit_of_measurement", "W")
+            return raw if unit == "W" else raw * 1000.0
+        except (ValueError, TypeError):
+            return 0.0
 
     def check_ev_charger_state(self) -> tuple[bool, bool]:
         """Check state of EV chargers configured with no-telemetry mode.
