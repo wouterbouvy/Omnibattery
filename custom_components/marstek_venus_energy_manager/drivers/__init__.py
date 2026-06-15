@@ -14,10 +14,12 @@ See ``docs/plans/driver_abstraction.md`` for the phased extraction plan.
 """
 
 from .base import BatteryDriver, DriverCapabilities, SetpointResult, TelemetrySnapshot
+from .marstek import MarstekModbusDriver
 
 __all__ = [
     "BatteryDriver",
     "DriverCapabilities",
     "SetpointResult",
     "TelemetrySnapshot",
+    "MarstekModbusDriver",
 ]
