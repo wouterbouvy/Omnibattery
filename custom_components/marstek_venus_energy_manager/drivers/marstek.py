@@ -254,6 +254,44 @@ class MarstekModbusDriver(BatteryDriver):
             battery_power_w=power_fb, applied=applied,
         )
 
+    async def apply_config(
+        self,
+        *,
+        max_soc_pct: float,
+        min_soc_pct: float,
+        max_charge_power_w: int,
+        max_discharge_power_w: int,
+    ) -> bool:
+        """Write the one-time per-battery configuration to the hardware.
+
+        Hardware SOC cut-offs (``charging``/``discharging_cutoff_capacity``) exist
+        only on v2; on v3/vA/vD those registers are absent and SOC is enforced in
+        software, so the cut-off writes are skipped. Max charge/discharge power
+        caps exist on every version. The SOC percentages are converted to the
+        cut-off register's deci-percent units here — register detail that belongs
+        in the driver. Registers absent for this version are skipped silently.
+        Returns True if every applicable write was accepted.
+
+        Concrete to this driver (not on :class:`BatteryDriver`): the exact set of
+        config registers is Marstek-specific. Hoist with a semantic name only when
+        a second brand needs it.
+        """
+        self._client.unit_id = self._slave_id
+        ok = True
+        cutoff_charge_reg = self.get_register("charging_cutoff_capacity")
+        if cutoff_charge_reg is not None:
+            ok &= await self._client.async_write_register(cutoff_charge_reg, int(max_soc_pct / 0.1))
+        cutoff_discharge_reg = self.get_register("discharging_cutoff_capacity")
+        if cutoff_discharge_reg is not None:
+            ok &= await self._client.async_write_register(cutoff_discharge_reg, int(min_soc_pct / 0.1))
+        max_charge_reg = self.get_register("max_charge_power")
+        if max_charge_reg is not None:
+            ok &= await self._client.async_write_register(max_charge_reg, max_charge_power_w)
+        max_discharge_reg = self.get_register("max_discharge_power")
+        if max_discharge_reg is not None:
+            ok &= await self._client.async_write_register(max_discharge_reg, max_discharge_power_w)
+        return bool(ok)
+
     async def set_rs485_control(self, enable: bool) -> bool:
         """Enable or disable RS485 (external Modbus) control mode.
 

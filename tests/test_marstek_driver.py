@@ -291,3 +291,67 @@ async def test_set_rs485_control_propagates_write_failure():
     drv = _driver("v3", client=client)
 
     assert await drv.set_rs485_control(True) is False
+
+
+# ----------------------------------------------------------------------
+# apply_config
+# ----------------------------------------------------------------------
+async def test_apply_config_v2_writes_cutoffs_and_power_caps():
+    client = _fake_client()
+    drv = _driver("v2", client=client)
+
+    ok = await drv.apply_config(
+        max_soc_pct=100, min_soc_pct=10,
+        max_charge_power_w=800, max_discharge_power_w=1200,
+    )
+
+    assert ok is True
+    regs = REGISTER_MAP["v2"]
+    # SOC percentages are written in the cut-off register's deci-percent units;
+    # use the identical expression so the test tracks any float quirk in int(/0.1).
+    client.async_write_register.assert_any_await(regs["charging_cutoff_capacity"], int(100 / 0.1))
+    client.async_write_register.assert_any_await(regs["discharging_cutoff_capacity"], int(10 / 0.1))
+    client.async_write_register.assert_any_await(regs["max_charge_power"], 800)
+    client.async_write_register.assert_any_await(regs["max_discharge_power"], 1200)
+    assert client.async_write_register.await_count == 4
+
+
+async def test_apply_config_v3_skips_absent_cutoffs():
+    client = _fake_client()
+    drv = _driver("v3", client=client)
+
+    await drv.apply_config(
+        max_soc_pct=90, min_soc_pct=20,
+        max_charge_power_w=2500, max_discharge_power_w=2500,
+    )
+
+    regs = REGISTER_MAP["v3"]
+    # cutoffs are None on v3 -> only the two power caps are written
+    assert client.async_write_register.await_count == 2
+    client.async_write_register.assert_any_await(regs["max_charge_power"], 2500)
+    client.async_write_register.assert_any_await(regs["max_discharge_power"], 2500)
+
+
+async def test_apply_config_addresses_configured_slave():
+    client = _fake_client()
+    drv = _driver("v3", slave_id=7, client=client)
+
+    await drv.apply_config(
+        max_soc_pct=90, min_soc_pct=20,
+        max_charge_power_w=2500, max_discharge_power_w=2500,
+    )
+
+    assert client.unit_id == 7
+
+
+async def test_apply_config_propagates_write_failure():
+    client = _fake_client()
+    client.async_write_register = AsyncMock(return_value=False)
+    drv = _driver("v3", client=client)
+
+    ok = await drv.apply_config(
+        max_soc_pct=90, min_soc_pct=20,
+        max_charge_power_w=2500, max_discharge_power_w=2500,
+    )
+
+    assert ok is False

@@ -893,3 +893,37 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
             elif not self._is_shutting_down:
                 _LOGGER.warning("[%s] Failed to set RS485 control=%s", self.name, enable)
             return ok
+
+    async def apply_config(
+        self,
+        *,
+        max_soc_pct: float,
+        min_soc_pct: float,
+        max_charge_power_w: int,
+        max_discharge_power_w: int,
+    ) -> bool:
+        """Write the one-time per-battery configuration via the driver, holding self.lock.
+
+        Semantic entry point for the setup path (max/min SOC cut-offs + power caps).
+        The driver owns which registers exist for this version and the deci-percent
+        scaling; this wrapper only adds the per-coordinator infra (lock + health
+        bookkeeping), matching write_register / set_rs485_control. No refresh.
+        """
+        async with self.lock:
+            try:
+                ok = await self.driver.apply_config(
+                    max_soc_pct=max_soc_pct,
+                    min_soc_pct=min_soc_pct,
+                    max_charge_power_w=max_charge_power_w,
+                    max_discharge_power_w=max_discharge_power_w,
+                )
+            except Exception as e:
+                if not self._is_shutting_down:
+                    _LOGGER.error("[%s] Exception writing battery config: %s", self.name, e)
+                return False
+            if ok:
+                self._consecutive_failures = 0
+                self._is_connected = True
+            elif not self._is_shutting_down:
+                _LOGGER.warning("[%s] One or more battery config writes failed", self.name)
+            return ok

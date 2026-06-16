@@ -4432,9 +4432,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         await coordinator.set_rs485_control(True)
                         await asyncio.sleep(0.1)
 
-                # Write initial configuration values to the battery
-                max_soc_value = int(battery_config["max_soc"] / 0.1)  # Convert to register value
-                min_soc_value = int(battery_config["min_soc"] / 0.1)  # Convert to register value
+                # Write initial configuration values to the battery: hardware SOC
+                # cut-offs (v2 only) + max charge/discharge power caps. The driver
+                # owns which registers exist for this version and the scaling.
                 max_charge_power = int(battery_config["max_charge_power"])
                 max_discharge_power = int(battery_config["max_discharge_power"])
 
@@ -4443,40 +4443,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                            battery_config["max_soc"], battery_config["min_soc"],
                            max_charge_power, max_discharge_power)
 
-                # Write cutoff capacities (v2 only - hardware registers)
-                cutoff_charge_reg = coordinator.get_register("charging_cutoff_capacity")
-                cutoff_discharge_reg = coordinator.get_register("discharging_cutoff_capacity")
+                await coordinator.apply_config(
+                    max_soc_pct=battery_config["max_soc"],
+                    min_soc_pct=battery_config["min_soc"],
+                    max_charge_power_w=max_charge_power,
+                    max_discharge_power_w=max_discharge_power,
+                )
 
-                if cutoff_charge_reg is not None:
-                    await coordinator.write_register(cutoff_charge_reg, max_soc_value, do_refresh=False)
-                    await asyncio.sleep(0.1)
-                    _LOGGER.info("%s: Hardware charging cutoff set to %d%% (reg=%d)",
-                                coordinator.name, battery_config["max_soc"], max_soc_value)
-                else:
-                    _LOGGER.info("%s: No hardware charging cutoff register (v3) - using software enforcement",
-                                coordinator.name)
-
-                if cutoff_discharge_reg is not None:
-                    await coordinator.write_register(cutoff_discharge_reg, min_soc_value, do_refresh=False)
-                    await asyncio.sleep(0.1)
-                    _LOGGER.info("%s: Hardware discharging cutoff set to %d%% (reg=%d)",
-                                coordinator.name, battery_config["min_soc"], min_soc_value)
-                else:
-                    _LOGGER.info("%s: No hardware discharging cutoff register (v3) - using software enforcement",
-                                coordinator.name)
-
-                # Write maximum power limits (available in both versions)
-                max_charge_reg = coordinator.get_register("max_charge_power")
-                max_discharge_reg = coordinator.get_register("max_discharge_power")
-
-                if max_charge_reg and max_discharge_reg:
-                    await coordinator.write_register(max_charge_reg, max_charge_power, do_refresh=False)
-                    await asyncio.sleep(0.1)
-                    await coordinator.write_register(max_discharge_reg, max_discharge_power, do_refresh=False)
-                    await asyncio.sleep(0.1)
-                    _LOGGER.info("%s: Max power limits set - charge: %dW, discharge: %dW",
-                                coordinator.name, max_charge_power, max_discharge_power)
-                
                 # Manually trigger first refresh and wait for it
                 await coordinator.async_request_refresh()
                 # Give a moment for the data to be processed
@@ -4708,23 +4681,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         _LOGGER.info("%s: Skipping shutdown writes - backup function active with offgrid load", coordinator.name)
                         continue
 
-                # Get version-specific registers
-                discharge_reg = coordinator.get_register("set_discharge_power")
-                charge_reg = coordinator.get_register("set_charge_power")
-                force_reg = coordinator.get_register("force_mode")
                 rs485_reg = coordinator.get_register("rs485_control")
 
-                # Set all power commands to 0
+                # Set all power commands to 0 (idle) via the driver.
                 _LOGGER.info("Setting %s to standby mode", coordinator.name)
-                if discharge_reg:
-                    await coordinator.write_register(discharge_reg, 0, do_refresh=False)
-                    await asyncio.sleep(0.05)
-                if charge_reg:
-                    await coordinator.write_register(charge_reg, 0, do_refresh=False)
-                    await asyncio.sleep(0.05)
-                if force_reg:
-                    await coordinator.write_register(force_reg, 0, do_refresh=False)
-                    await asyncio.sleep(0.05)
+                await coordinator.apply_power(0, read_back=False)
 
                 # Disable RS485 Control Mode (return control to battery's internal logic)
                 _LOGGER.info("Disabling RS485 control mode for %s", coordinator.name)
