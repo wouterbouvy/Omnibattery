@@ -16,7 +16,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .entity_naming import english_entity_id
+from .infra.entity_naming import english_entity_id
 from .const import (
     DOMAIN,
     EFFICIENCY_SENSOR_DEFINITIONS,
@@ -91,9 +91,9 @@ from .const import (
     DEFAULT_SLOT_ALLOW_CHARGE,
     DEFAULT_SLOT_ALLOW_DISCHARGE,
 )
-from .coordinator import MarstekVenusDataUpdateCoordinator
-from .aggregate_sensors import AGGREGATE_SENSOR_DEFINITIONS, MarstekVenusAggregateSensor, DailyGridAtMinSocSensor, SystemAlarmSensor, PdControlQualitySensor
-from .calculated_sensors import MarstekVenusEfficiencySensor, MarstekVenusStoredEnergySensor, MarstekVenusCycleSensor, MarstekVenusSolarPowerSensor, MarstekVenusBatteryCellPowerSensor
+from .infra.coordinator import MarstekVenusDataUpdateCoordinator
+from .sensors.aggregate_sensors import AGGREGATE_SENSOR_DEFINITIONS, MarstekVenusAggregateSensor, DailyGridAtMinSocSensor, SystemAlarmSensor, PdControlQualitySensor
+from .sensors.calculated_sensors import MarstekVenusEfficiencySensor, MarstekVenusStoredEnergySensor, MarstekVenusCycleSensor, MarstekVenusSolarPowerSensor, MarstekVenusBatteryCellPowerSensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -216,11 +216,11 @@ async def async_setup_entry(
     async_add_entities(entities)
 
     # Balance monitor sensors (registered separately so they get their own setup call)
-    from . import balance_sensors as _balance_sensors
+    from .sensors import balance_sensors as _balance_sensors
     await _balance_sensors.async_setup_entry(hass, entry, async_add_entities)
 
     # Hourly balance sensors
-    from . import hourly_balance_sensors as _hourly_balance_sensors
+    from .sensors import hourly_balance_sensors as _hourly_balance_sensors
     await _hourly_balance_sensors.async_setup_entry(hass, entry, async_add_entities)
 
 

@@ -10,7 +10,7 @@ import logging
 
 from homeassistant.core import HomeAssistant
 
-from .const import ALARM_BIT_DESCRIPTIONS, FAULT_BIT_DESCRIPTIONS, NOTIFICATION_ID_PREFIX
+from ..const import ALARM_BIT_DESCRIPTIONS, FAULT_BIT_DESCRIPTIONS, NOTIFICATION_ID_PREFIX
 
 _LOGGER = logging.getLogger(__name__)
 

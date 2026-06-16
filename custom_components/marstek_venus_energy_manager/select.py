@@ -19,8 +19,8 @@ from .const import (
     PD_TUNING_PROFILE_OPTIONS,
     pd_profile_from_params,
 )
-from .coordinator import MarstekVenusDataUpdateCoordinator
-from .entity_naming import english_entity_id
+from .infra.coordinator import MarstekVenusDataUpdateCoordinator
+from .infra.entity_naming import english_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
 
-from .const import (
+from ..const import (
     DOMAIN,
     BALANCE_STORAGE_KEY,
     BALANCE_STORAGE_VERSION,

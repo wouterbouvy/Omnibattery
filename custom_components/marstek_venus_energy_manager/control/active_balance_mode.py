@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.util import dt as dt_util
 
-from .const import (
+from ..const import (
     ACTIVE_BALANCE_ADAPTIVE_MIN_RESUME_CELL_VOLTAGE,
     ACTIVE_BALANCE_ADAPTIVE_RESUME_STEP_V,
     ACTIVE_BALANCE_CHARGE_POWER_W,

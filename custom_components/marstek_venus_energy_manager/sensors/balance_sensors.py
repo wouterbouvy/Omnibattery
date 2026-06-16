@@ -10,9 +10,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .balance_monitor import BalanceMonitor, BalanceSensorGroup
-from .const import DOMAIN
-from .entity_naming import english_entity_id
+from ..tracking.balance_monitor import BalanceMonitor, BalanceSensorGroup
+from ..const import DOMAIN
+from ..infra.entity_naming import english_entity_id
 
 
 async def async_setup_entry(

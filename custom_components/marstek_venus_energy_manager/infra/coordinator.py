@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers import entity_registry
 
-from .const import (
+from ..const import (
     DOMAIN,
     SCAN_INTERVAL,
     DEBUG_POLL_SENSOR_SKIPS,
@@ -16,8 +16,8 @@ from .const import (
     CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
     DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
 )
-from .drivers.marstek import MarstekModbusDriver
-from .drivers.base import SetpointResult
+from ..drivers.marstek import MarstekModbusDriver
+from ..drivers.base import SetpointResult
 from .alarm_notifier import AlarmNotifier
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         self.consumption_sensor = consumption_sensor
 
         # Validate and store battery version
-        from .const import SUPPORTED_VERSIONS, DEFAULT_VERSION
+        from ..const import SUPPORTED_VERSIONS, DEFAULT_VERSION
         if battery_version not in SUPPORTED_VERSIONS:
             _LOGGER.error("[%s] Unsupported battery version: %s. Defaulting to %s", name, battery_version, DEFAULT_VERSION)
             self.battery_version = DEFAULT_VERSION
@@ -334,7 +334,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
             self._entity_registry = er.async_get(self.hass)
 
         # Collect all dependency keys from calculated sensors
-        from .const import EFFICIENCY_SENSOR_DEFINITIONS, STORED_ENERGY_SENSOR_DEFINITIONS, CYCLE_SENSOR_DEFINITIONS
+        from ..const import EFFICIENCY_SENSOR_DEFINITIONS, STORED_ENERGY_SENSOR_DEFINITIONS, CYCLE_SENSOR_DEFINITIONS
         all_definitions_for_deps = EFFICIENCY_SENSOR_DEFINITIONS + STORED_ENERGY_SENSOR_DEFINITIONS + CYCLE_SENSOR_DEFINITIONS
         dependency_keys_set = {dep_key for defn in all_definitions_for_deps
                             for dep_key in defn.get("dependency_keys", {}).values()

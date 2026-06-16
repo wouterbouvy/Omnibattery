@@ -23,7 +23,7 @@ import math
 import time
 from typing import TYPE_CHECKING, Any
 
-from .const import (
+from ..const import (
     MULTI_BATTERY_CHARGE_CROSSOVER_W,
     MULTI_BATTERY_DISCHARGE_CROSSOVER_W,
     MULTI_BATTERY_HYSTERESIS_GAP,

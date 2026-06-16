@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN, WEEKDAY_MAP
+from ..const import DOMAIN, WEEKDAY_MAP
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant

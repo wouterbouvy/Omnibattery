@@ -9,9 +9,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, CONF_ENABLE_HOURLY_BALANCE
-from .entity_naming import english_entity_id
-from .hourly_balance import HourlyBalanceManager
+from ..const import DOMAIN, CONF_ENABLE_HOURLY_BALANCE
+from ..infra.entity_naming import english_entity_id
+from ..tracking.hourly_balance import HourlyBalanceManager
 
 
 async def async_setup_entry(

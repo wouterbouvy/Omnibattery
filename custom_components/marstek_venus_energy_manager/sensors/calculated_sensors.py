@@ -11,9 +11,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, EFFICIENCY_SENSOR_DEFINITIONS, STORED_ENERGY_SENSOR_DEFINITIONS, CYCLE_SENSOR_DEFINITIONS
-from .coordinator import MarstekVenusDataUpdateCoordinator
-from .entity_naming import english_entity_id
+from ..const import DOMAIN, EFFICIENCY_SENSOR_DEFINITIONS, STORED_ENERGY_SENSOR_DEFINITIONS, CYCLE_SENSOR_DEFINITIONS
+from ..infra.coordinator import MarstekVenusDataUpdateCoordinator
+from ..infra.entity_naming import english_entity_id
 
 # Skip integration across gaps larger than this (stalled coordinator / sensor
 # offline) so a resumed update can't dump one giant energy block.

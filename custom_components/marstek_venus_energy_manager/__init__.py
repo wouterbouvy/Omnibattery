@@ -114,13 +114,13 @@ from .const import (
     DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
     DEBUG_CONTROL_LOOP_DETAIL,
 )
-from .charge_delay import ChargeDelayManager
-from .coordinator import MarstekVenusDataUpdateCoordinator
-from .hourly_balance import HourlyBalanceManager
-from .non_responsive_tracker import NonResponsiveTracker
-from .weekly_full_charge import WeeklyFullChargeManager
-from .active_balance_mode import ActiveBalanceModeManager
-from .max_soc_charge import MaxSocChargeManager
+from .control.charge_delay import ChargeDelayManager
+from .infra.coordinator import MarstekVenusDataUpdateCoordinator
+from .tracking.hourly_balance import HourlyBalanceManager
+from .tracking.non_responsive_tracker import NonResponsiveTracker
+from .control.weekly_full_charge import WeeklyFullChargeManager
+from .control.active_balance_mode import ActiveBalanceModeManager
+from .control.max_soc_charge import MaxSocChargeManager
 from .pricing import DynamicPricingSchedule, notifications
 from .pricing.engine import PricingManager
 
@@ -4465,14 +4465,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # This allows the controller to register itself in hass.data[DOMAIN]["pid_controller"]
     controller = ChargeDischargeController(hass, coordinators, entry.data["consumption_sensor"], entry)
 
-    from .consumption_tracker import ConsumptionTracker
+    from .tracking.consumption_tracker import ConsumptionTracker
     consumption_tracker = ConsumptionTracker(hass, entry, controller)
     controller._consumption_tracker = consumption_tracker
 
-    from .external_loads import ExternalLoads
+    from .infra.external_loads import ExternalLoads
     controller._external_loads = ExternalLoads(hass, entry, controller)
 
-    from .power_distribution import PowerDistribution
+    from .control.power_distribution import PowerDistribution
     controller._power_distribution = PowerDistribution(hass, entry, controller)
 
     # Restore daily consumption history: try Store first (survives reloads), then binary sensor fallback
@@ -4554,7 +4554,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Set up balance monitor. This is always enabled so users always get
     # battery health history from top-voltage balance measurements.
-    from .balance_monitor import BalanceMonitor
+    from .tracking.balance_monitor import BalanceMonitor
     balance_monitor = BalanceMonitor(hass, entry, controller)
     await balance_monitor.async_setup()
     for coordinator in coordinators:

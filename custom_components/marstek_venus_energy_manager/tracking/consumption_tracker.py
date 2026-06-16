@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import DEFAULT_BASE_CONSUMPTION_KWH, DOMAIN
+from ..const import DEFAULT_BASE_CONSUMPTION_KWH, DOMAIN
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant

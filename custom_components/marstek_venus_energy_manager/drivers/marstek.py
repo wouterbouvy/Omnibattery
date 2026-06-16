@@ -22,7 +22,7 @@ import logging
 from typing import Optional
 
 from ..const import MESSAGE_WAIT_MS, READ_TIMEOUT_S, REGISTER_MAP
-from ..modbus_client import MarstekModbusClient, decode_registers
+from ..infra.modbus_client import MarstekModbusClient, decode_registers
 from .base import (
     BatteryDriver,
     DriverCapabilities,

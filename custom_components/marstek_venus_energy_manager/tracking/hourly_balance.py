@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import (
+from ..const import (
     DOMAIN,
     HOURLY_BALANCE_STORAGE_KEY,
     HOURLY_BALANCE_STORAGE_VERSION,

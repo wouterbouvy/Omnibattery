@@ -12,7 +12,7 @@ from typing import Optional
 
 import logging
 
-from .const import DEBUG_RAW_MODBUS_READS
+from ..const import DEBUG_RAW_MODBUS_READS
 
 _LOGGER = logging.getLogger(__name__)
 

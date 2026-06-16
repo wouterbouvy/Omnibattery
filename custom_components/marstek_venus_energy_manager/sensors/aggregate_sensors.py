@@ -11,8 +11,8 @@ import logging
 
 _LOGGER = logging.getLogger(__name__)
 
-from .const import DOMAIN, ALARM_BIT_DESCRIPTIONS, FAULT_BIT_DESCRIPTIONS, DEBUG_POLL_SENSOR_VALUES, CONF_SOLAR_PRODUCTION_SENSOR, pd_profile_from_params
-from .coordinator import MarstekVenusDataUpdateCoordinator
+from ..const import DOMAIN, ALARM_BIT_DESCRIPTIONS, FAULT_BIT_DESCRIPTIONS, DEBUG_POLL_SENSOR_VALUES, CONF_SOLAR_PRODUCTION_SENSOR, pd_profile_from_params
+from ..infra.coordinator import MarstekVenusDataUpdateCoordinator
 
 
 # Define aggregate sensor definitions
