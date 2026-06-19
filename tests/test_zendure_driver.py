@@ -5,6 +5,7 @@ so no network access or Home Assistant runtime is required.
 """
 from __future__ import annotations
 
+import re
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -52,11 +53,11 @@ _REPORT = {
     "properties": {
         "electricLevel": 80,
         "outputHomePower": 200,
-        "solarInputPower": 0,
+        "solarInputPower": 150,
         "gridInputPower": 150,
         "packInputPower": 0,
         "outputPackPower": 50,
-        "hyperTmp": 35,
+        "hyperTmp": 3035,         # centi-°C → 30.35 °C
         "faultLevel": 0,
         "acStatus": 1,
         "remainOutTime": 120,
@@ -68,7 +69,18 @@ _REPORT = {
         "socSet": 100,
         "minSoc": 10,
         "inverseMaxPower": 2400,
+        "solarPower1": 100,
+        "solarPower2": 50,
+        "solarPower3": 0,
+        "solarPower4": 0,
+        "BatVolt": 5010,          # centi-volt → 50.10 V
+        "rssi": -58,
+        "gridOffPower": 0,
     },
+    "packData": [
+        {"maxVol": 334, "minVol": 333},
+        {"maxVol": 330, "minVol": 320},
+    ],
 }
 
 
@@ -113,6 +125,7 @@ def test_capabilities_flags():
     assert caps.has_rs485_control is False
     assert caps.has_mppt_pv is False
     assert caps.has_alarm_registers is True
+    assert caps.has_energy_counters is False  # no kWh / capacity in the report
 
 
 def test_capabilities_power_envelope():
@@ -128,6 +141,18 @@ def test_capabilities_power_envelope():
 def test_sensor_definitions_include_core_keys():
     keys = {d["key"] for d in _driver().sensor_definitions}
     assert {"battery_soc", "battery_power", "output_home_power"} <= keys
+
+
+def test_sensor_definitions_reuse_marstek_logical_keys():
+    # Cross-brand homogeneity: shared concepts use the same logical keys as the
+    # Marstek driver so they share translations and dashboard cards.
+    keys = {d["key"] for d in _driver().sensor_definitions}
+    assert {
+        "internal_temperature", "solar_power",
+        "mppt1_power", "mppt2_power", "mppt3_power", "mppt4_power",
+        "battery_voltage", "ac_offgrid_power",
+        "max_cell_voltage", "min_cell_voltage", "wifi_signal_strength",
+    } <= keys
 
 
 def test_number_definitions_include_soc_and_power_controls():
@@ -175,7 +200,52 @@ async def test_read_telemetry_maps_properties_to_keys():
     snap = await _driver(session=_session(get_data=_REPORT)).read_telemetry()
     assert snap["battery_soc"] == 80         # electricLevel
     assert snap["output_home_power"] == 200  # outputHomePower
-    assert snap["device_temperature"] == 35  # hyperTmp
+    assert snap["solar_power"] == 150        # solarInputPower → Marstek key
+
+
+async def test_read_telemetry_returns_raw_centi_units_for_coordinator_scaling():
+    # Driver returns raw device values under the reused Marstek keys; the
+    # coordinator applies the ×0.01 scale from the entity definition (same path
+    # as Marstek register sensors). Scaling in the driver would double it.
+    snap = await _driver(session=_session(get_data=_REPORT)).read_telemetry()
+    assert snap["internal_temperature"] == 3035  # hyperTmp raw (→30.35 °C scaled)
+    assert snap["battery_voltage"] == 5010        # BatVolt raw (→50.10 V scaled)
+
+
+def test_centi_scaled_keys_carry_scale_for_coordinator():
+    by_key = {d["key"]: d for d in _driver().sensor_definitions}
+    for k in ("internal_temperature", "battery_voltage",
+              "max_cell_voltage", "min_cell_voltage"):
+        assert by_key[k]["scale"] == 0.01
+
+
+async def test_read_telemetry_maps_mppt_rssi_and_offgrid():
+    snap = await _driver(session=_session(get_data=_REPORT)).read_telemetry()
+    assert snap["mppt1_power"] == 100
+    assert snap["mppt2_power"] == 50
+    assert snap["mppt3_power"] == 0
+    assert snap["mppt4_power"] == 0
+    assert snap["wifi_signal_strength"] == -58  # rssi (dBm, as-is)
+    assert snap["ac_offgrid_power"] == 0        # gridOffPower
+
+
+async def test_read_telemetry_cell_voltages_from_packdata():
+    # Device-level extremes across packs, raw centi-volt (max of maxVol, min of
+    # minVol); coordinator applies the ×0.01 scale.
+    snap = await _driver(session=_session(get_data=_REPORT)).read_telemetry()
+    assert snap["max_cell_voltage"] == 334  # max(334, 330) → 3.34 V scaled
+    assert snap["min_cell_voltage"] == 320  # min(333, 320) → 3.20 V scaled
+
+
+async def test_read_telemetry_remain_time_sentinel_is_none():
+    data = {"sn": "ZB1", "properties": {"remainOutTime": 59940}}
+    snap = await _driver(session=_session(get_data=data)).read_telemetry()
+    assert snap["remain_discharge_time"] is None
+
+
+async def test_read_telemetry_remain_time_real_value_passes_through():
+    snap = await _driver(session=_session(get_data=_REPORT)).read_telemetry()
+    assert snap["remain_discharge_time"] == 120
 
 
 async def test_read_telemetry_synthesises_battery_power_charging():
@@ -199,7 +269,32 @@ async def test_read_telemetry_converts_soc_set_min_soc_from_deci_percent():
 
 async def test_read_telemetry_key_filter():
     snap = await _driver(session=_session(get_data=_REPORT)).read_telemetry(["battery_soc", "battery_power"])
-    assert set(snap) == {"battery_soc", "battery_power"}
+    # Requested keys are returned. Per-pack keys (like max_charge_power) ride
+    # through the filter regardless so the platform can size pack sensors.
+    assert {"battery_soc", "battery_power"} <= set(snap)
+    extras = set(snap) - {"battery_soc", "battery_power"}
+    assert all(re.match(r"pack\d+_", k) for k in extras)
+
+
+async def test_read_telemetry_emits_per_pack_keys():
+    data = {
+        "sn": "ZB1",
+        "properties": {"electricLevel": 77, "packNum": 1},
+        "packData": [
+            {"socLevel": 76, "totalVol": 5005, "maxVol": 334, "minVol": 333,
+             "maxTemp": 3011, "power": 120, "sn": "PK1", "packType": 500, "state": 0},
+        ],
+    }
+    snap = await _driver(session=_session(get_data=data)).read_telemetry()
+    assert snap["pack1_soc"] == 76
+    assert snap["pack1_voltage"] == 50.05          # totalVol / 100
+    assert snap["pack1_max_cell_voltage"] == 3.34  # maxVol / 100
+    assert snap["pack1_min_cell_voltage"] == 3.33
+    assert snap["pack1_temperature"] == 30.11      # maxTemp / 100
+    assert snap["pack1_power"] == 120
+    assert snap["pack1_sn"] == "PK1"
+    assert snap["pack1_model"] == 500              # packType
+    assert snap["pack1_state"] == 0
 
 
 async def test_read_telemetry_keeps_max_charge_power_through_filter():

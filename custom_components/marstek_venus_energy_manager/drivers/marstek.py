@@ -230,6 +230,7 @@ class MarstekModbusDriver(BatteryDriver):
             has_mppt_pv="mppt1_power" in self._telemetry_index,
             has_alarm_registers="alarm_status" in self._telemetry_index,
             has_rs485_control=REGISTER_MAP.get(version, {}).get("rs485_control") is not None,
+            has_energy_counters=True,  # battery_total_energy + total_*_energy registers
         )
 
     # --- identity -----------------------------------------------------------

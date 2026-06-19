@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any, Optional
 
 import aiohttp
@@ -52,11 +53,11 @@ _PROBE_TIMEOUT = aiohttp.ClientTimeout(total=5)
 _PROP_TO_KEY: dict[str, str] = {
     "electricLevel":    "battery_soc",
     "outputHomePower":  "output_home_power",
-    "solarInputPower":  "solar_input_power",
+    "solarInputPower":  "solar_power",
     "gridInputPower":   "grid_input_power",
     "packInputPower":   "pack_input_power",
     "outputPackPower":  "output_pack_power",
-    "hyperTmp":         "device_temperature",
+    "hyperTmp":         "internal_temperature",
     "faultLevel":       "fault_level",
     "acStatus":         "ac_status",
     "remainOutTime":    "remain_discharge_time",
@@ -73,6 +74,17 @@ _PROP_TO_KEY: dict[str, str] = {
     # the coordinator syncs it and PD stops allocating charge the device cannot
     # accept (it hard-clamps charge to this, e.g. 800 W on a 2400 AC+).
     "chargeMaxLimit":   "max_charge_power",
+    # Per-MPPT solar inputs, battery voltage, WiFi RSSI and off-grid output are
+    # exposed via the same logical keys as the Marstek driver for cross-brand
+    # homogeneity (shared translations + dashboard cards). Cell voltages come
+    # from packData[], not properties, so they are not mapped here.
+    "solarPower1":      "mppt1_power",
+    "solarPower2":      "mppt2_power",
+    "solarPower3":      "mppt3_power",
+    "solarPower4":      "mppt4_power",
+    "BatVolt":          "battery_voltage",
+    "rssi":             "wifi_signal_strength",
+    "gridOffPower":     "ac_offgrid_power",
 }
 
 # Reverse map for write_control: logical key → API property name.
@@ -86,6 +98,30 @@ _AC_MODE_DISCHARGE = 2
 # read (÷10) and write (×10). Confirmed on a 2400 AC+: writing socSet=100 set the
 # device target to 10%, so it refused to charge a battery already above 10%.
 _DECIPERCENT_KEYS = frozenset({"soc_set", "min_soc"})
+
+# remainOutTime reports 59940 (999 h, expressed in minutes) when the device is
+# idle / not discharging. Surface that as unknown rather than a bogus ~41-day
+# duration.
+_REMAIN_TIME_SENTINEL = 59940
+
+# Per-pack telemetry from packData[] is exposed as `pack{N}_{suffix}` logical
+# keys (N is 1-based). They are not in SENSOR_DEFINITIONS — the platform builds
+# one ZendurePackSensor per (pack, spec) from PACK_FIELD_SPECS at setup, sized to
+# the real pack count — so the driver pre-scales the values here (the coordinator
+# only scales keys that have a definition). Matches this regex; preserved through
+# the read_telemetry key filter even though no definition lists them.
+_PACK_KEY_RE = re.compile(r"^pack\d+_")
+
+# Numeric per-pack sensor fields. Each becomes a sensor entity per pack; sn /
+# model / state ride along as attributes on the SoC sensor (see ZendurePackSensor).
+PACK_FIELD_SPECS: list[dict] = [
+    {"suffix": "soc",              "name": "SOC",              "unit": "%",  "device_class": "battery",     "precision": 0, "icon": "mdi:battery"},
+    {"suffix": "voltage",          "name": "Voltage",          "unit": "V",  "device_class": "voltage",     "precision": 2},
+    {"suffix": "max_cell_voltage", "name": "Max Cell Voltage", "unit": "V",  "device_class": "voltage",     "precision": 3},
+    {"suffix": "min_cell_voltage", "name": "Min Cell Voltage", "unit": "V",  "device_class": "voltage",     "precision": 3},
+    {"suffix": "temperature",      "name": "Temperature",      "unit": "°C", "device_class": "temperature", "precision": 1},
+    {"suffix": "power",            "name": "Power",            "unit": "W",  "device_class": "power",       "precision": 0},
+]
 
 
 # ---------------------------------------------------------------------------
@@ -101,9 +137,9 @@ SENSOR_DEFINITIONS: list[dict] = [
     {"key": "output_home_power",    "name": "Output to Home",           "unit": "W",
      "device_class": "power",       "state_class": "measurement",       "scale": 1, "precision": 0,
      "scan_interval": "high",       "enabled_by_default": True},
-    {"key": "solar_input_power",    "name": "Solar Input Power",        "unit": "W",
+    {"key": "solar_power",          "name": "Solar Power",              "unit": "W",
      "device_class": "power",       "state_class": "measurement",       "scale": 1, "precision": 0,
-     "scan_interval": "high",       "enabled_by_default": True},
+     "icon": "mdi:solar-power",     "scan_interval": "high",            "enabled_by_default": True},
     {"key": "grid_input_power",     "name": "Grid Input Power",         "unit": "W",
      "device_class": "power",       "state_class": "measurement",       "scale": 1, "precision": 0,
      "scan_interval": "high",       "enabled_by_default": True},
@@ -116,8 +152,8 @@ SENSOR_DEFINITIONS: list[dict] = [
     {"key": "battery_power",        "name": "Battery Power",            "unit": "W",
      "device_class": "power",       "state_class": "measurement",       "scale": 1, "precision": 0,
      "scan_interval": "high",       "enabled_by_default": True},
-    {"key": "device_temperature",   "name": "Device Temperature",       "unit": "°C",
-     "device_class": "temperature", "state_class": "measurement",       "scale": 1, "precision": 1,
+    {"key": "internal_temperature", "name": "Internal Temperature",     "unit": "°C",
+     "device_class": "temperature", "state_class": "measurement",       "scale": 0.01, "precision": 2,
      "scan_interval": "low",        "enabled_by_default": True},
     {"key": "remain_discharge_time","name": "Remaining Discharge Time", "unit": "min",
      "device_class": "duration",    "state_class": "measurement",       "scale": 1, "precision": 0,
@@ -137,6 +173,34 @@ SENSOR_DEFINITIONS: list[dict] = [
     {"key": "ac_mode",              "name": "AC Mode",                  "unit": None,
      "device_class": None,          "state_class": None,                "scale": 1, "precision": 0,
      "scan_interval": "medium",     "enabled_by_default": False},
+    # Reused Marstek logical keys (shared translations + dashboard cards).
+    {"key": "mppt1_power",          "name": "MPPT1 Power",              "unit": "W",
+     "device_class": "power",       "state_class": "measurement",       "scale": 1, "precision": 0,
+     "scan_interval": "high",       "enabled_by_default": True},
+    {"key": "mppt2_power",          "name": "MPPT2 Power",              "unit": "W",
+     "device_class": "power",       "state_class": "measurement",       "scale": 1, "precision": 0,
+     "scan_interval": "high",       "enabled_by_default": True},
+    {"key": "mppt3_power",          "name": "MPPT3 Power",              "unit": "W",
+     "device_class": "power",       "state_class": "measurement",       "scale": 1, "precision": 0,
+     "scan_interval": "high",       "enabled_by_default": True},
+    {"key": "mppt4_power",          "name": "MPPT4 Power",              "unit": "W",
+     "device_class": "power",       "state_class": "measurement",       "scale": 1, "precision": 0,
+     "scan_interval": "high",       "enabled_by_default": True},
+    {"key": "battery_voltage",      "name": "Battery Voltage",          "unit": "V",
+     "device_class": "voltage",     "state_class": "measurement",       "scale": 0.01, "precision": 1,
+     "scan_interval": "medium",     "enabled_by_default": True},
+    {"key": "ac_offgrid_power",     "name": "AC Offgrid Power",         "unit": "W",
+     "device_class": "power",       "state_class": "measurement",       "scale": 1, "precision": 0,
+     "scan_interval": "high",       "enabled_by_default": True},
+    {"key": "max_cell_voltage",     "name": "Max Cell Voltage",         "unit": "V",
+     "device_class": "voltage",     "state_class": "measurement",       "scale": 0.01, "precision": 3,
+     "scan_interval": "high",       "enabled_by_default": True},
+    {"key": "min_cell_voltage",     "name": "Min Cell Voltage",         "unit": "V",
+     "device_class": "voltage",     "state_class": "measurement",       "scale": 0.01, "precision": 3,
+     "scan_interval": "high",       "enabled_by_default": True},
+    {"key": "wifi_signal_strength", "name": "WiFi Signal Strength",     "unit": "dBm",
+     "device_class": "signal_strength", "state_class": "measurement",   "scale": 1, "precision": 0,
+     "category": "diagnostic",      "scan_interval": "low",             "enabled_by_default": True},
 ]
 
 NUMBER_DEFINITIONS: list[dict] = [
@@ -192,6 +256,7 @@ class ZendureLocalDriver(BatteryDriver):
             has_mppt_pv=False,           # no DC-coupled MPPT; solar is AC-side
             has_alarm_registers=True,    # faultLevel + is_error
             has_rs485_control=False,
+            has_energy_counters=False,   # no kWh / capacity in the report; synthesised
         )
 
         self._definitions: dict[str, list[dict]] = {
@@ -246,6 +311,16 @@ class ZendureLocalDriver(BatteryDriver):
     @property
     def all_definitions(self) -> list[dict]:
         return self._definitions["all"]
+
+    @property
+    def pack_field_specs(self) -> list[dict]:
+        """Numeric per-pack sensor fields (see PACK_FIELD_SPECS).
+
+        The sensor platform reads this back to build one entity per (pack, field),
+        sized to the live pack count. Absent on the Marstek driver, so the platform
+        getattr's it and skips per-pack entities for brands that don't expose packs.
+        """
+        return PACK_FIELD_SPECS
 
     # --- identity -----------------------------------------------------------
 
@@ -307,7 +382,7 @@ class ZendureLocalDriver(BatteryDriver):
         if self._sn is None:
             self._sn = data.get("sn")
 
-        snapshot = self._snapshot_from_props(data.get("properties", {}))
+        snapshot = self._snapshot_from_report(data)
 
         if keys is not None:
             # max_charge_power is a control attribute (it drives PD allocation),
@@ -315,18 +390,19 @@ class ZendureLocalDriver(BatteryDriver):
             # regardless so the coordinator syncs the device's real charge cap.
             snapshot = {
                 k: v for k, v in snapshot.items()
-                if k in keys or k == "max_charge_power"
+                if k in keys or k == "max_charge_power" or _PACK_KEY_RE.match(k)
             }
 
         return snapshot
 
-    def _snapshot_from_props(self, props: dict) -> TelemetrySnapshot:
-        """Map raw device properties to a logical-key snapshot.
+    def _snapshot_from_report(self, data: dict) -> TelemetrySnapshot:
+        """Map a /properties/report payload to a logical-key snapshot.
 
         Shared by read_telemetry and the apply_setpoint readback echo so the
-        property→key mapping, deci-percent conversion and synthesised
-        battery_power stay in one place.
+        property→key mapping, unit scaling, packData cell voltages and the
+        synthesised battery_power stay in one place.
         """
+        props = data.get("properties", {})
         snapshot: TelemetrySnapshot = {}
         for prop, key in _PROP_TO_KEY.items():
             if prop in props:
@@ -336,6 +412,51 @@ class ZendureLocalDriver(BatteryDriver):
         for key in _DECIPERCENT_KEYS:
             if snapshot.get(key) is not None:
                 snapshot[key] = snapshot[key] / 10
+
+        # hyperTmp (centi-°C) and BatVolt (centi-volt) are returned raw; the
+        # coordinator applies the ×0.01 scale from the entity definition, the
+        # same path Marstek register sensors use. Scaling here would double it.
+
+        # remainOutTime reports a 999 h sentinel when idle / not discharging;
+        # surface as unknown (None) rather than a bogus ~41-day duration.
+        remain = snapshot.get("remain_discharge_time")
+        if remain is not None and remain >= _REMAIN_TIME_SENTINEL:
+            snapshot["remain_discharge_time"] = None
+
+        # Device-level cell-voltage extremes from packData[] (raw centi-volt;
+        # the coordinator applies the ×0.01 scale from the entity definition).
+        packs = data.get("packData") or []
+        max_vols = [p["maxVol"] for p in packs if p.get("maxVol")]
+        min_vols = [p["minVol"] for p in packs if p.get("minVol")]
+        if max_vols:
+            snapshot["max_cell_voltage"] = max(max_vols)
+        if min_vols:
+            snapshot["min_cell_voltage"] = min(min_vols)
+
+        # Per-pack telemetry → pack{N}_* logical keys (1-based). Pre-scaled here
+        # because these keys have no entity definition for the coordinator to
+        # scale (voltages/temps are centi-units; soc/power are already correct).
+        # sn / model / state ride along for the SoC sensor's attributes.
+        for idx, pack in enumerate(packs, start=1):
+            prefix = f"pack{idx}_"
+            if pack.get("socLevel") is not None:
+                snapshot[prefix + "soc"] = pack["socLevel"]
+            if pack.get("totalVol") is not None:
+                snapshot[prefix + "voltage"] = round(pack["totalVol"] / 100, 2)
+            if pack.get("maxVol") is not None:
+                snapshot[prefix + "max_cell_voltage"] = round(pack["maxVol"] / 100, 3)
+            if pack.get("minVol") is not None:
+                snapshot[prefix + "min_cell_voltage"] = round(pack["minVol"] / 100, 3)
+            if pack.get("maxTemp") is not None:
+                snapshot[prefix + "temperature"] = round(pack["maxTemp"] / 100, 2)
+            if pack.get("power") is not None:
+                snapshot[prefix + "power"] = pack["power"]
+            if pack.get("sn") is not None:
+                snapshot[prefix + "sn"] = pack["sn"]
+            if pack.get("packType") is not None:
+                snapshot[prefix + "model"] = pack["packType"]
+            if pack.get("state") is not None:
+                snapshot[prefix + "state"] = pack["state"]
 
         # Synthesise signed battery_power: +charge / −discharge.
         pack_in = props.get("packInputPower", 0)
@@ -422,7 +543,7 @@ class ZendureLocalDriver(BatteryDriver):
             confirmed = props.get("outputLimit") == 0
 
         # Full snapshot echo so the coordinator cache reflects the readback.
-        echo = self._snapshot_from_props(props)
+        echo = self._snapshot_from_report(data)
         battery_power = echo["battery_power"]
 
         return SetpointResult(

@@ -297,6 +297,22 @@ class MarstekVenusAggregateSensor(SensorEntity):
         precision = 1 if has_v3 else self.definition.get("precision", 0)
         return round(weighted_soc, precision)
 
+    @staticmethod
+    def _ac_convention_power(data: dict) -> float | None:
+        """Return battery power in ac_power convention (charge negative, discharge positive).
+
+        Marstek exposes ``ac_power`` directly. Drivers that don't (e.g. Zendure)
+        only synthesise ``battery_power`` (+charge / −discharge, opposite sign),
+        so fall back to its negation to keep them in the system charge/discharge totals.
+        """
+        power = data.get("ac_power")
+        if power is not None:
+            return power
+        battery_power = data.get("battery_power")
+        if battery_power is not None:
+            return -battery_power
+        return None
+
     def _calculate_total_charge_power(self) -> float | None:
         """Calculate total charge power across all batteries.
 
@@ -308,7 +324,7 @@ class MarstekVenusAggregateSensor(SensorEntity):
         for coordinator in self.coordinators:
             # Disconnected units keep a stale ac_power (merged dict, never expired).
             if coordinator.is_available and coordinator.data:
-                power = coordinator.data.get("ac_power")
+                power = self._ac_convention_power(coordinator.data)
                 if power is not None:
                     # Only count negative values (charging)
                     if power < 0:
@@ -332,7 +348,7 @@ class MarstekVenusAggregateSensor(SensorEntity):
         for coordinator in self.coordinators:
             # Disconnected units keep a stale ac_power (merged dict, never expired).
             if coordinator.is_available and coordinator.data:
-                power = coordinator.data.get("ac_power")
+                power = self._ac_convention_power(coordinator.data)
                 if power is not None:
                     ac_powers.append(f"{coordinator.name}={power}W")
                     # Only count positive values (discharging)

@@ -93,7 +93,16 @@ from .const import (
 )
 from .infra.coordinator import MarstekVenusDataUpdateCoordinator
 from .sensors.aggregate_sensors import AGGREGATE_SENSOR_DEFINITIONS, MarstekVenusAggregateSensor, DailyGridAtMinSocSensor, SystemAlarmSensor, PdControlQualitySensor
-from .sensors.calculated_sensors import MarstekVenusEfficiencySensor, MarstekVenusStoredEnergySensor, MarstekVenusCycleSensor, MarstekVenusSolarPowerSensor, MarstekVenusBatteryCellPowerSensor
+from .sensors.calculated_sensors import (
+    MarstekVenusEfficiencySensor,
+    MarstekVenusStoredEnergySensor,
+    MarstekVenusCycleSensor,
+    MarstekVenusSolarPowerSensor,
+    MarstekVenusBatteryCellPowerSensor,
+    SyntheticEnergySensor,
+    ZendurePackSensor,
+    SYNTHETIC_ENERGY_SENSOR_DEFINITIONS,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -134,6 +143,19 @@ async def async_setup_entry(
             entities.append(MarstekVenusStoredEnergySensor(coordinator, definition))
         for definition in CYCLE_SENSOR_DEFINITIONS:
             entities.append(MarstekVenusCycleSensor(coordinator, definition))
+        # Drivers without hardware energy counters (Zendure): synthesise the
+        # charge/discharge energy totals by integrating power, and expose per-pack
+        # telemetry sized to the live pack count (the first refresh already ran).
+        if not coordinator.capabilities.has_energy_counters:
+            for definition in SYNTHETIC_ENERGY_SENSOR_DEFINITIONS:
+                entities.append(SyntheticEnergySensor(coordinator, definition))
+        pack_specs = getattr(coordinator.driver, "pack_field_specs", None)
+        if pack_specs:
+            data = coordinator.data or {}
+            pack_count = sum(1 for i in range(1, 33) if f"pack{i}_soc" in data)
+            for pack_index in range(1, pack_count + 1):
+                for spec in pack_specs:
+                    entities.append(ZendurePackSensor(coordinator, pack_index, spec))
         # DC-coupled PV total + solar-corrected battery power exist only on
         # Venus D/A (units with MPPT registers).
         if coordinator.capabilities.has_mppt_pv:

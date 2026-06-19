@@ -1332,6 +1332,9 @@
       "charge_hysteresis_percent": {
         "name": "Charge Hysteresis Percent"
       },
+      "battery_capacity": {
+        "name": "Battery Capacity"
+      },
       "predictive_safety_margin_kwh": {
         "name": "Solar Forecast Safety Margin"
       }

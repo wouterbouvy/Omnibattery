@@ -68,6 +68,11 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         self.enable_charge_hysteresis = enable_charge_hysteresis
         self.charge_hysteresis_percent = charge_hysteresis_percent
         self.backup_offgrid_threshold = backup_offgrid_threshold
+        # User-set nominal capacity (kWh) for drivers that don't report it
+        # (has_energy_counters=False, e.g. Zendure). Injected into data as
+        # battery_total_energy each poll so stored_energy / predictive / pricing
+        # math work. Set from battery_config after construction; 0 = not yet set.
+        self.battery_capacity_kwh = 0.0
         self.allow_charge = allow_charge
         self.allow_discharge = allow_discharge
         self.active_balance_mode_enabled = active_balance_mode_enabled
@@ -453,6 +458,12 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
             stored = 0
             for key, value in snapshot.items():
                 sensor = self._def_by_key.get(key, {})
+                # A driver may emit None to signal "currently unknown" (e.g. an
+                # idle sentinel mapped to None); store as-is rather than trying to
+                # scale/round NoneType.
+                if value is None:
+                    updated_data[key] = None
+                    continue
                 # Apply scaling and rounding (not applicable to char/string sensors).
                 if sensor.get("data_type") != "char":
                     if "scale" in sensor:
@@ -542,6 +553,13 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Update the coordinator's data
         self.data.update(updated_data)
+
+        # Drivers without hardware energy counters (Zendure) don't report a
+        # nominal capacity; surface the user-set value as battery_total_energy so
+        # stored_energy, predictive charging and pricing math see it like a
+        # register-backed battery would.
+        if not self.capabilities.has_energy_counters and self.battery_capacity_kwh:
+            self.data["battery_total_energy"] = self.battery_capacity_kwh
 
         # Detect new alarm/fault bits and send HA notifications
         await self._alarm_notifier.check(

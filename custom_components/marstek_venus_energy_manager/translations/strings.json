@@ -1153,6 +1153,21 @@
           "compensating_export": "Compensating Export",
           "compensation_stopped": "Compensation Stopped"
         }
+      },
+      "output_home_power": {
+        "name": "Output to Home"
+      },
+      "grid_input_power": {
+        "name": "Grid Input Power"
+      },
+      "pack_input_power": {
+        "name": "Battery Discharge Power"
+      },
+      "output_pack_power": {
+        "name": "Battery Charge Power"
+      },
+      "remain_discharge_time": {
+        "name": "Remaining Discharge Time"
       }
     },
     "binary_sensor": {
@@ -1276,11 +1291,23 @@
       "charge_hysteresis_percent": {
         "name": "Charge Hysteresis Percent"
       },
+      "battery_capacity": {
+        "name": "Battery Capacity"
+      },
       "predictive_safety_margin_kwh": {
         "name": "Solar Forecast Safety Margin"
       },
       "predictive_grid_charge_margin_pct": {
         "name": "Predictive Grid Charge Margin"
+      },
+      "soc_set": {
+        "name": "Target SOC"
+      },
+      "min_soc": {
+        "name": "Minimum SOC"
+      },
+      "inverse_max_power": {
+        "name": "Max Inverter Output"
       }
     },
     "button": {

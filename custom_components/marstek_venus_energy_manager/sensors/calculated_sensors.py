@@ -10,6 +10,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN, EFFICIENCY_SENSOR_DEFINITIONS, STORED_ENERGY_SENSOR_DEFINITIONS, CYCLE_SENSOR_DEFINITIONS
 from ..infra.coordinator import MarstekVenusDataUpdateCoordinator
@@ -348,6 +349,193 @@ class MarstekVenusSolarPowerSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
+            "name": self.coordinator.name,
+            "manufacturer": "Marstek",
+            "model": "Venus",
+        }
+
+
+# Synthesised charge/discharge energy for drivers without hardware counters
+# (Zendure). Reuses the Marstek register keys so the existing translations and
+# dashboard cards apply unchanged.
+SYNTHETIC_ENERGY_SENSOR_DEFINITIONS: list[dict] = [
+    {"key": "total_charging_energy",         "direction": "charge",    "period": "total",
+     "unit": "kWh", "device_class": "energy", "state_class": "total_increasing",
+     "precision": 2, "icon": "mdi:battery-plus-variant"},
+    {"key": "total_discharging_energy",      "direction": "discharge", "period": "total",
+     "unit": "kWh", "device_class": "energy", "state_class": "total_increasing",
+     "precision": 2, "icon": "mdi:battery-minus-variant"},
+    {"key": "total_daily_charging_energy",   "direction": "charge",    "period": "daily",
+     "unit": "kWh", "device_class": "energy", "state_class": "total_increasing",
+     "precision": 2, "icon": "mdi:battery-plus-variant"},
+    {"key": "total_daily_discharging_energy","direction": "discharge", "period": "daily",
+     "unit": "kWh", "device_class": "energy", "state_class": "total_increasing",
+     "precision": 2, "icon": "mdi:battery-minus-variant"},
+]
+
+
+class SyntheticEnergySensor(CoordinatorEntity, RestoreEntity, SensorEntity):
+    """Charge/discharge energy (kWh) integrated from battery_power.
+
+    For drivers without hardware energy counters (Zendure): the device reports no
+    kWh, so the value is a Riemann sum of battery_power over time, signed by
+    direction. One entity per (direction, period) — daily entities reset at local
+    midnight, total entities accumulate for the device's lifetime. Persisted across
+    restarts via RestoreEntity (state = kWh; a `reset_date` attribute drives the
+    daily reset across a restart that straddles midnight). The integration is an
+    estimate at poll cadence, not a metered value.
+    """
+
+    def __init__(
+        self, coordinator: MarstekVenusDataUpdateCoordinator, definition: dict
+    ) -> None:
+        """Initialize the synthetic energy sensor."""
+        super().__init__(coordinator)
+        self.definition = definition
+        self._attr_has_entity_name = True
+        self._attr_translation_key = definition["key"]
+        self._attr_unique_id = f"{coordinator.device_key}_{definition['key']}"
+        self.entity_id = english_entity_id("sensor", coordinator.name, definition["key"])
+        self._attr_device_class = definition.get("device_class")
+        self._attr_state_class = definition.get("state_class")
+        self._attr_native_unit_of_measurement = definition.get("unit")
+        self._attr_icon = definition.get("icon")
+        self._attr_suggested_display_precision = definition.get("precision")
+        self._attr_should_poll = False
+
+        self._direction = definition["direction"]       # "charge" / "discharge"
+        self._daily = definition["period"] == "daily"
+        self._precision = definition.get("precision", 2)
+        self._kwh = 0.0
+        self._last_mono: float | None = None
+        self._reset_date = dt_util.now().date() if self._daily else None
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the accumulated energy on startup."""
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is None:
+            return
+        try:
+            self._kwh = float(last.state)
+        except (TypeError, ValueError):
+            self._kwh = 0.0
+        if self._daily:
+            today = dt_util.now().date()
+            # A restart that straddled local midnight starts a fresh day.
+            if last.attributes.get("reset_date") != today.isoformat():
+                self._kwh = 0.0
+            self._reset_date = today
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Integrate battery_power on each coordinator update, then write state."""
+        self._accumulate()
+        super()._handle_coordinator_update()
+
+    def _accumulate(self) -> None:
+        """Add the energy moved since the last sample in this entity's direction."""
+        data = self.coordinator.data
+        now = time.monotonic()
+        last = self._last_mono
+        self._last_mono = now
+
+        # Reset daily counters at local midnight regardless of battery activity.
+        if self._daily:
+            today = dt_util.now().date()
+            if today != self._reset_date:
+                self._kwh = 0.0
+                self._reset_date = today
+
+        if not data:
+            return
+        battery = data.get("battery_power")  # signed: + charge / - discharge
+        if battery is None or last is None:
+            return
+        dt = now - last
+        if dt <= 0 or dt > _MAX_INTEGRATION_GAP_S:
+            return
+        kwh = abs(battery) * (dt / 3600.0) / 1000.0
+        if self._direction == "charge" and battery > 0:
+            self._kwh += kwh
+        elif self._direction == "discharge" and battery < 0:
+            self._kwh += kwh
+
+    @property
+    def native_value(self) -> float:
+        """Return the accumulated energy (kWh)."""
+        return round(self._kwh, self._precision)
+
+    @property
+    def extra_state_attributes(self):
+        """Expose the daily reset date so a restart can detect a day rollover."""
+        if not self._daily:
+            return None
+        return {"reset_date": self._reset_date.isoformat()}
+
+    @property
+    def device_info(self):
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
+            "name": self.coordinator.name,
+            "manufacturer": "Marstek",
+            "model": "Venus",
+        }
+
+
+class ZendurePackSensor(CoordinatorEntity, SensorEntity):
+    """Per-pack telemetry sensor (one per pack × field).
+
+    The driver pre-scales packData[] into pack{N}_{suffix} keys; this entity reads
+    one of them. Uses a plain name (not a translation key) so per-pack entities
+    need no translations. The SoC field also exposes the pack's serial / model /
+    state as attributes so heterogeneous packs can be told apart.
+    """
+
+    def __init__(
+        self, coordinator: MarstekVenusDataUpdateCoordinator, pack_index: int, spec: dict
+    ) -> None:
+        """Initialize. pack_index is 1-based; spec is a PACK_FIELD_SPECS entry."""
+        super().__init__(coordinator)
+        self._pack_index = pack_index
+        self._spec = spec
+        self._key = f"pack{pack_index}_{spec['suffix']}"
+        self._attr_has_entity_name = True
+        self._attr_name = f"Pack {pack_index} {spec['name']}"
+        self._attr_unique_id = f"{coordinator.device_key}_{self._key}"
+        self.entity_id = english_entity_id("sensor", coordinator.name, self._key)
+        self._attr_native_unit_of_measurement = spec.get("unit")
+        self._attr_device_class = spec.get("device_class")
+        self._attr_state_class = "measurement"
+        self._attr_icon = spec.get("icon")
+        self._attr_suggested_display_precision = spec.get("precision")
+        self._attr_should_poll = False
+
+    @property
+    def native_value(self):
+        """Return this pack field's current value."""
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.get(self._key)
+
+    @property
+    def extra_state_attributes(self):
+        """On the SoC sensor, surface the pack's serial / model / state."""
+        if self._spec["suffix"] != "soc" or self.coordinator.data is None:
+            return None
+        attrs = {}
+        for label, suffix in (("serial_number", "sn"), ("model", "model"), ("state", "state")):
+            value = self.coordinator.data.get(f"pack{self._pack_index}_{suffix}")
+            if value is not None:
+                attrs[label] = value
+        return attrs or None
+
+    @property
+    def device_info(self):
+        """Return device information (same device as the battery)."""
         return {
             "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
             "name": self.coordinator.name,
