@@ -56,7 +56,7 @@
       },
       "battery_connection_zendure": {
         "title": "Configure battery {battery_num} — Connection (Zendure)",
-        "description": "Enter connection details for the Zendure SolarFlow device. Make sure HEMS is enabled in the Zendure app.",
+        "description": "Enter connection details for the Zendure SolarFlow battery {battery_num}. Make sure HEMS is enabled in the Zendure app.",
         "data": {
           "name": "Name",
           "host": "IP Address",
@@ -519,7 +519,7 @@
       },
       "battery_connection_zendure": {
         "title": "Configure battery {battery_num} — Connection (Zendure)",
-        "description": "Modify connection details for the Zendure SolarFlow device. Make sure HEMS is enabled in the Zendure app.",
+        "description": "Modify connection details for the Zendure SolarFlow battery {battery_num}. Make sure HEMS is enabled in the Zendure app.",
         "data": {
           "name": "Name",
           "host": "IP Address",
