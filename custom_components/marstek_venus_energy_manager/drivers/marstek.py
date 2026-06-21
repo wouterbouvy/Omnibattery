@@ -239,9 +239,16 @@ class MarstekModbusDriver(BatteryDriver):
     def capabilities(self) -> DriverCapabilities:
         return self._capabilities
 
+    _MODEL_LABELS: dict[str, str] = {
+        "v2": "Venus E v2",
+        "v3": "Venus E v3",
+        "vA": "Venus A",
+        "vD": "Venus D",
+    }
+
     @property
     def model_label(self) -> str:
-        return f"Venus {self._version}"
+        return self._MODEL_LABELS.get(self._version, f"Venus {self._version}")
 
     # --- entity definitions -------------------------------------------------
     # The driver owns this version's register/entity set; the coordinator and

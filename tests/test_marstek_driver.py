@@ -68,9 +68,14 @@ def test_v3_family_has_no_hardware_cutoff(version):
     assert _driver(version).capabilities.hardware_soc_cutoff is False
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "vA", "vD"])
-def test_model_label_is_venus_plus_version(version):
-    assert _driver(version).model_label == f"Venus {version}"
+@pytest.mark.parametrize("version,expected", [
+    ("v2", "Venus E v2"),
+    ("v3", "Venus E v3"),
+    ("vA", "Venus A"),
+    ("vD", "Venus D"),
+])
+def test_model_label_is_correct(version, expected):
+    assert _driver(version).model_label == expected
 
 
 def test_capabilities_carry_power_envelope_and_force_mode():
