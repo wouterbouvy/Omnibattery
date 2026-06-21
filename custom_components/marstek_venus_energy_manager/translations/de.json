@@ -1242,20 +1242,14 @@
           "compensation_stopped": "Kompensation Gestoppt"
         }
       },
-      "output_home_power": {
-        "name": "Ausgang zum Haus"
-      },
-      "grid_input_power": {
-        "name": "Netzeingangsleistung"
-      },
-      "pack_input_power": {
-        "name": "Batterie-Entladeleistung"
-      },
-      "output_pack_power": {
-        "name": "Batterie-Ladeleistung"
-      },
       "remain_discharge_time": {
         "name": "Verbleibende Entladezeit"
+      },
+      "fault_level": {
+        "name": "Fehlerstufe"
+      },
+      "ac_mode": {
+        "name": "AC-Modus"
       }
     },
     "binary_sensor": {

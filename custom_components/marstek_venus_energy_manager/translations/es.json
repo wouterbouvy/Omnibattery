@@ -1242,20 +1242,14 @@
           "compensation_stopped": "Compensación Detenida"
         }
       },
-      "output_home_power": {
-        "name": "Potencia hacia Casa"
-      },
-      "grid_input_power": {
-        "name": "Potencia de Entrada de Red"
-      },
-      "pack_input_power": {
-        "name": "Potencia de Descarga de la Batería"
-      },
-      "output_pack_power": {
-        "name": "Potencia de Carga de la Batería"
-      },
       "remain_discharge_time": {
         "name": "Tiempo de Descarga Restante"
+      },
+      "fault_level": {
+        "name": "Nivel de Error"
+      },
+      "ac_mode": {
+        "name": "Modo AC"
       }
     },
     "binary_sensor": {

@@ -1242,20 +1242,14 @@
           "compensation_stopped": "Compensatie Gestopt"
         }
       },
-      "output_home_power": {
-        "name": "Uitvoer naar Huis"
-      },
-      "grid_input_power": {
-        "name": "Netingangsvermogen"
-      },
-      "pack_input_power": {
-        "name": "Batterij-ontlaadvermogen"
-      },
-      "output_pack_power": {
-        "name": "Batterij-laadvermogen"
-      },
       "remain_discharge_time": {
         "name": "Resterende Ontlaadtijd"
+      },
+      "fault_level": {
+        "name": "Foutniveau"
+      },
+      "ac_mode": {
+        "name": "AC-modus"
       }
     },
     "binary_sensor": {

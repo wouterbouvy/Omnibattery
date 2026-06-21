@@ -1242,20 +1242,14 @@
           "compensation_stopped": "Compensation Stopped"
         }
       },
-      "output_home_power": {
-        "name": "Output to Home"
-      },
-      "grid_input_power": {
-        "name": "Grid Input Power"
-      },
-      "pack_input_power": {
-        "name": "Battery Discharge Power"
-      },
-      "output_pack_power": {
-        "name": "Battery Charge Power"
-      },
       "remain_discharge_time": {
         "name": "Remaining Discharge Time"
+      },
+      "fault_level": {
+        "name": "Fault Level"
+      },
+      "ac_mode": {
+        "name": "AC Mode"
       }
     },
     "binary_sensor": {

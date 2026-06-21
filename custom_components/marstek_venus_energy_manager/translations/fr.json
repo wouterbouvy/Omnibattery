@@ -1242,20 +1242,14 @@
           "compensation_stopped": "Compensation Arrêtée"
         }
       },
-      "output_home_power": {
-        "name": "Sortie vers la Maison"
-      },
-      "grid_input_power": {
-        "name": "Puissance d'Entrée Réseau"
-      },
-      "pack_input_power": {
-        "name": "Puissance de Décharge Batterie"
-      },
-      "output_pack_power": {
-        "name": "Puissance de Charge Batterie"
-      },
       "remain_discharge_time": {
         "name": "Temps de Décharge Restant"
+      },
+      "fault_level": {
+        "name": "Niveau d'Erreur"
+      },
+      "ac_mode": {
+        "name": "Mode AC"
       }
     },
     "binary_sensor": {

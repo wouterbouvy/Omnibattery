@@ -1242,20 +1242,14 @@
           "compensation_stopped": "Compensació Aturada"
         }
       },
-      "output_home_power": {
-        "name": "Potència cap a Casa"
-      },
-      "grid_input_power": {
-        "name": "Potència d'Entrada de Xarxa"
-      },
-      "pack_input_power": {
-        "name": "Potència de Descàrrega de la Bateria"
-      },
-      "output_pack_power": {
-        "name": "Potència de Càrrega de la Bateria"
-      },
       "remain_discharge_time": {
         "name": "Temps de Descàrrega Restant"
+      },
+      "fault_level": {
+        "name": "Nivell d'Error"
+      },
+      "ac_mode": {
+        "name": "Mode AC"
       }
     },
     "binary_sensor": {
