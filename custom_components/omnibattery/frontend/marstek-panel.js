@@ -86,7 +86,7 @@ const I18N = {
     itemMaxContracted: "Max contracted power", itemSolarSafety: "Solar safety margin", itemGridChargeMargin: "Grid charge margin",
     itemSocThreshold: "SOC threshold", itemPeakLimit: "Peak limit",
     itemDelaySafety: "Safety margin", itemDelaySoc: "Delay target SOC",
-    secHourly: "Hourly balance", secWeeklyFull: "Weekly full charge", itemWeeklyDay: "Full charge day",
+    secHourly: "Hourly balance", hourlyEsOnly: "Only useful in Spain (RD 244/2019) · detected country: {c}", secWeeklyFull: "Weekly full charge", itemWeeklyDay: "Full charge day",
     secSlots: "Configured slots", itemSlot: "Slot",
     secExcluded: "Excluded devices", itemExcludedDevice: "Excluded device", itemSolarSurplus: "Solar surplus",
     secSysLimits: "System power limits", itemSysMaxCharge: "System max charge", itemSysMaxDischarge: "System max discharge",
@@ -150,7 +150,7 @@ const I18N = {
     itemMaxContracted: "Potencia contratada máx.", itemSolarSafety: "Margen de seguridad solar", itemGridChargeMargin: "Margen de carga de red",
     itemSocThreshold: "Umbral de SOC", itemPeakLimit: "Límite de pico",
     itemDelaySafety: "Margen de seguridad", itemDelaySoc: "SOC objetivo de retardo",
-    secHourly: "Balance horario", secWeeklyFull: "Carga semanal completa", itemWeeklyDay: "Día de carga completa",
+    secHourly: "Balance horario", hourlyEsOnly: "Solo útil en España (RD 244/2019) · país detectado: {c}", secWeeklyFull: "Carga semanal completa", itemWeeklyDay: "Día de carga completa",
     secSlots: "Franjas configuradas", itemSlot: "Franja",
     secExcluded: "Dispositivos excluidos", itemExcludedDevice: "Dispositivo excluido", itemSolarSurplus: "Excedente solar",
     secSysLimits: "Límites de potencia del sistema", itemSysMaxCharge: "Máx. carga del sistema", itemSysMaxDischarge: "Máx. descarga del sistema",
@@ -212,7 +212,7 @@ const I18N = {
     itemMaxContracted: "Potència contractada màx.", itemSolarSafety: "Marge de seguretat solar", itemGridChargeMargin: "Marge de càrrega de xarxa",
     itemSocThreshold: "Llindar de SOC", itemPeakLimit: "Límit de pic",
     itemDelaySafety: "Marge de seguretat", itemDelaySoc: "SOC objectiu de retard",
-    secHourly: "Balanç horari", secWeeklyFull: "Càrrega setmanal completa", itemWeeklyDay: "Dia de càrrega completa",
+    secHourly: "Balanç horari", hourlyEsOnly: "Només útil a Espanya (RD 244/2019) · país detectat: {c}", secWeeklyFull: "Càrrega setmanal completa", itemWeeklyDay: "Dia de càrrega completa",
     secSlots: "Franges configurades", itemSlot: "Franja",
     secExcluded: "Dispositius exclosos", itemExcludedDevice: "Dispositiu exclòs", itemSolarSurplus: "Excedent solar",
     secSysLimits: "Límits de potència del sistema", itemSysMaxCharge: "Màx. càrrega del sistema", itemSysMaxDischarge: "Màx. descàrrega del sistema",
@@ -274,7 +274,7 @@ const I18N = {
     itemMaxContracted: "Max. Vertragsleistung", itemSolarSafety: "Sicherheitspuffer Solar", itemGridChargeMargin: "Netzladungs-Marge",
     itemSocThreshold: "SOC-Schwelle", itemPeakLimit: "Spitzenlimit",
     itemDelaySafety: "Sicherheitspuffer", itemDelaySoc: "Verzögerungs-Ziel-SOC",
-    secHourly: "Stündliche Balance", secWeeklyFull: "Wöchentliche Vollladung", itemWeeklyDay: "Tag der Vollladung",
+    secHourly: "Stündliche Balance", hourlyEsOnly: "Nur in Spanien sinnvoll (RD 244/2019) · erkanntes Land: {c}", secWeeklyFull: "Wöchentliche Vollladung", itemWeeklyDay: "Tag der Vollladung",
     secSlots: "Konfigurierte Zeitfenster", itemSlot: "Zeitfenster",
     secExcluded: "Ausgeschlossene Geräte", itemExcludedDevice: "Ausgeschlossenes Gerät", itemSolarSurplus: "Solarüberschuss",
     secSysLimits: "System-Leistungsgrenzen", itemSysMaxCharge: "System-Max.-Ladeleistung", itemSysMaxDischarge: "System-Max.-Entladeleistung",
@@ -336,7 +336,7 @@ const I18N = {
     itemMaxContracted: "Puissance contractuelle max.", itemSolarSafety: "Marge de sécurité solaire", itemGridChargeMargin: "Marge de charge réseau",
     itemSocThreshold: "Seuil SOC", itemPeakLimit: "Limite de pointe",
     itemDelaySafety: "Marge de sécurité", itemDelaySoc: "SOC cible du délai",
-    secHourly: "Bilan horaire", secWeeklyFull: "Charge complète hebdomadaire", itemWeeklyDay: "Jour de charge complète",
+    secHourly: "Bilan horaire", hourlyEsOnly: "Utile uniquement en Espagne (RD 244/2019) · pays détecté : {c}", secWeeklyFull: "Charge complète hebdomadaire", itemWeeklyDay: "Jour de charge complète",
     secSlots: "Créneaux configurés", itemSlot: "Créneau",
     secExcluded: "Appareils exclus", itemExcludedDevice: "Appareil exclu", itemSolarSurplus: "Surplus solaire",
     secSysLimits: "Limites de puissance du système", itemSysMaxCharge: "Charge max. système", itemSysMaxDischarge: "Décharge max. système",
@@ -398,7 +398,7 @@ const I18N = {
     itemMaxContracted: "Max. gecontracteerd vermogen", itemSolarSafety: "Veiligheidsmarge zon", itemGridChargeMargin: "Netladingsmarge",
     itemSocThreshold: "SOC-drempel", itemPeakLimit: "Pieklimiet",
     itemDelaySafety: "Veiligheidsmarge", itemDelaySoc: "Doel-SOC vertraging",
-    secHourly: "Uurbalans", secWeeklyFull: "Wekelijkse volledige lading", itemWeeklyDay: "Dag volledige lading",
+    secHourly: "Uurbalans", hourlyEsOnly: "Alleen nuttig in Spanje (RD 244/2019) · gedetecteerd land: {c}", secWeeklyFull: "Wekelijkse volledige lading", itemWeeklyDay: "Dag volledige lading",
     secSlots: "Geconfigureerde tijdvakken", itemSlot: "Tijdvak",
     secExcluded: "Uitgesloten apparaten", itemExcludedDevice: "Uitgesloten apparaat", itemSolarSurplus: "Zonne-overschot",
     secSysLimits: "Systeemvermogenslimieten", itemSysMaxCharge: "Max. systeemladen", itemSysMaxDischarge: "Max. systeemontladen",
@@ -3768,6 +3768,10 @@ class MarstekVenusPanel extends HTMLElement {
         const on = (this._hass.states[gateId] || {}).state === "on";
         for (const n of gatedNodes) n.style.display = on ? "" : "none";
       }
+      if (sec.tk === "secHourly") {
+        const warn = this._hourlyWarnEl();
+        if (warn) card.appendChild(warn);
+      }
       card.appendChild(grid);
       this._makeCardDraggable(card, wrap);
       cardByTk[sec.tk] = card;
@@ -3782,6 +3786,23 @@ class MarstekVenusPanel extends HTMLElement {
     for (const { sec } of sections) push(sec.tk);
     for (const tk of order) wrap.appendChild(cardByTk[tk]);
     return { wrap, sig };
+  }
+
+  /** Inline banner for the Hourly Balance card: the feature only applies under
+   *  Spain's hourly surplus-compensation scheme (RD 244/2019). Shown only when HA
+   *  is configured for a confirmed non-ES country, to deter accidental use abroad.
+   *  Returns null (no banner) when the country is ES or unset. */
+  _hourlyWarnEl() {
+    const c = (this._hass && this._hass.config && this._hass.config.country) || "";
+    if (!c || c.toUpperCase() === "ES") return null;
+    const el = document.createElement("div");
+    el.className = "sys-warn";
+    el.textContent = "⚠️ " + this._t("hourlyEsOnly", { c });
+    el.style.cssText =
+      "margin:2px 0 8px;padding:6px 9px;border-radius:8px;font-size:12px;line-height:1.35;" +
+      "background:rgba(255,170,0,.12);color:var(--warning-color,#e8a300);" +
+      "border:1px solid rgba(255,170,0,.35);";
+    return el;
   }
 
   // --- Control-tab column count (fixed-width override, persisted per browser) --
