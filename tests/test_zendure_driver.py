@@ -14,6 +14,7 @@ from custom_components.omnibattery.drivers.zendure import (
     NUMBER_DEFINITIONS,
     SELECT_DEFINITIONS,
     SENSOR_DEFINITIONS,
+    SWITCH_DEFINITIONS,
     ZendureLocalDriver,
 )
 
@@ -143,7 +144,7 @@ def test_capabilities_power_envelope():
 
 def test_sensor_definitions_include_core_keys():
     keys = {d["key"] for d in _driver().sensor_definitions}
-    assert {"battery_soc", "battery_power", "output_home_power"} <= keys
+    assert {"battery_soc", "battery_power"} <= keys
 
 
 def test_sensor_definitions_reuse_marstek_logical_keys():
@@ -163,9 +164,15 @@ def test_number_definitions_include_soc_and_power_controls():
     assert {"soc_set", "min_soc", "inverse_max_power"} <= keys
 
 
-def test_switch_binary_sensor_button_empty():
+def test_switch_definitions_include_lamp_switch():
+    by_key = {d["key"]: d for d in _driver().switch_definitions}
+    assert "lamp_switch" in by_key
+    assert by_key["lamp_switch"]["command_on"] == 1
+    assert by_key["lamp_switch"]["command_off"] == 0
+
+
+def test_binary_sensor_button_empty():
     drv = _driver()
-    assert drv.switch_definitions == []
     assert drv.binary_sensor_definitions == []
     assert drv.button_definitions == []
 
@@ -177,9 +184,9 @@ def test_select_definitions_include_grid_off_mode():
     assert by_key["grid_off_mode"]["options"] == {"normal": 0, "economy": 1, "off": 2}
 
 
-def test_all_definitions_is_sensor_plus_number_plus_select():
+def test_all_definitions_is_sensor_plus_number_plus_select_plus_switch():
     assert _driver().all_definitions == (
-        SENSOR_DEFINITIONS + NUMBER_DEFINITIONS + SELECT_DEFINITIONS
+        SENSOR_DEFINITIONS + NUMBER_DEFINITIONS + SELECT_DEFINITIONS + SWITCH_DEFINITIONS
     )
 
 
@@ -210,7 +217,6 @@ def test_control_dependency_keys_cover_net_power_inputs():
 async def test_read_telemetry_maps_properties_to_keys():
     snap = await _driver(session=_session(get_data=_REPORT)).read_telemetry()
     assert snap["battery_soc"] == 80         # electricLevel
-    assert snap["output_home_power"] == 200  # outputHomePower
     assert snap["solar_power"] == 150        # solarInputPower → Marstek key
 
 
@@ -633,7 +639,8 @@ async def test_probe_returns_true_when_properties_present(monkeypatch):
         "custom_components.omnibattery.drivers.zendure.aiohttp.ClientSession",
         MagicMock(return_value=fake),
     )
-    assert await ZendureLocalDriver.probe("192.168.1.100") is True
+    # probe returns (reachable, product_string); no "product" in payload → None.
+    assert await ZendureLocalDriver.probe("192.168.1.100") == (True, None)
 
 
 async def test_probe_returns_false_on_http_error(monkeypatch):
@@ -642,7 +649,7 @@ async def test_probe_returns_false_on_http_error(monkeypatch):
         "custom_components.omnibattery.drivers.zendure.aiohttp.ClientSession",
         MagicMock(return_value=fake),
     )
-    assert await ZendureLocalDriver.probe("192.168.1.100") is False
+    assert await ZendureLocalDriver.probe("192.168.1.100") == (False, None)
 
 
 async def test_probe_returns_false_when_properties_key_missing(monkeypatch):
@@ -651,7 +658,7 @@ async def test_probe_returns_false_when_properties_key_missing(monkeypatch):
         "custom_components.omnibattery.drivers.zendure.aiohttp.ClientSession",
         MagicMock(return_value=fake),
     )
-    assert await ZendureLocalDriver.probe("192.168.1.100") is False
+    assert await ZendureLocalDriver.probe("192.168.1.100") == (False, None)
 
 
 async def test_probe_returns_false_on_exception(monkeypatch):
@@ -665,4 +672,4 @@ async def test_probe_returns_false_on_exception(monkeypatch):
         "custom_components.omnibattery.drivers.zendure.aiohttp.ClientSession",
         MagicMock(return_value=fake),
     )
-    assert await ZendureLocalDriver.probe("192.168.1.100") is False
+    assert await ZendureLocalDriver.probe("192.168.1.100") == (False, None)

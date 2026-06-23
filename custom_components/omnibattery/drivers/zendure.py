@@ -95,6 +95,9 @@ _PROP_TO_KEY: dict[str, str] = {
     "BatVolt":          "battery_voltage",
     "rssi":             "wifi_signal_strength",
     "gridOffPower":     "ac_offgrid_power",
+    # Status LED ring on/off (0/1). The API spec marks it read-only, but the
+    # device accepts a write and persists it — exposed as a switch.
+    "lampSwitch":       "lamp_switch",
 }
 
 # Reverse map for write_control: logical key → API property name.
@@ -222,6 +225,13 @@ SELECT_DEFINITIONS: list[dict] = [
      "scan_interval": "low", "enabled_by_default": True},
 ]
 
+SWITCH_DEFINITIONS: list[dict] = [
+    # Status LED ring. lampSwitch=1 on / 0 off. write_control sends smartMode=0
+    # so the flash write survives reboots (same as the config writes).
+    {"key": "lamp_switch", "name": "Status LEDs", "command_on": 1, "command_off": 0,
+     "icon": "mdi:led-on", "scan_interval": "low", "enabled_by_default": True},
+]
+
 
 # ---------------------------------------------------------------------------
 # Driver
@@ -277,10 +287,10 @@ class ZendureLocalDriver(BatteryDriver):
             "sensor":        _sensor_defs,
             "number":        NUMBER_DEFINITIONS,
             "select":        SELECT_DEFINITIONS,
-            "switch":        [],
+            "switch":        SWITCH_DEFINITIONS,
             "binary_sensor": [],
             "button":        [],
-            "all":           _sensor_defs + NUMBER_DEFINITIONS + SELECT_DEFINITIONS,
+            "all":           _sensor_defs + NUMBER_DEFINITIONS + SELECT_DEFINITIONS + SWITCH_DEFINITIONS,
         }
 
         # Single read group: one HTTP GET returns all properties, so there is
