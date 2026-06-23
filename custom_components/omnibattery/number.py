@@ -83,6 +83,14 @@ async def async_setup_entry(
             continue
         entities.append(MarstekConfigNumberEntity(hass, entry, definition))
 
+    # Per-excluded-device "exclusion %" sliders (runtime adjustable). EV
+    # no-telemetry devices have no numeric power sensor, so the slider would do
+    # nothing for them — skip those.
+    for index, device in enumerate(entry.data.get("excluded_devices", [])):
+        if device.get("ev_charger_no_telemetry", False):
+            continue
+        entities.append(ExcludedDeviceExclusionPctNumber(hass, entry, index))
+
     async_add_entities(entities)
 
 
@@ -240,6 +248,83 @@ class MarstekConfigNumberEntity(NumberEntity):
             controller.update_pd_parameters()
 
         _LOGGER.info("Config parameter %s updated to %s", self._key, value)
+        self.async_write_ha_state()
+
+    @property
+    def device_info(self):
+        """Return device information for the system."""
+        return {
+            "identifiers": {(DOMAIN, "marstek_venus_system")},
+            "name": "Omnibattery System",
+            "manufacturer": "Omnibattery",
+            "model": "Multi-Battery System",
+        }
+
+
+class ExcludedDeviceExclusionPctNumber(NumberEntity):
+    """Runtime slider: percentage of an excluded device's demand kept excluded
+    from the battery.
+
+    100% (default) = device fully excluded (battery never covers it — original
+    behaviour). Lower values let the battery cover the remaining fraction
+    (e.g. 60% → battery may cover 40% of the device's demand). Mirrors the
+    per-device Solar Surplus switch: stores the value in config_entry.data and
+    is read each control cycle by ExternalLoads._exclusion_factor().
+    """
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, index: int) -> None:
+        """Initialize the exclusion-percentage slider for one excluded device."""
+        self.hass = hass
+        self.entry = entry
+        self._device_index = index
+
+        device = entry.data.get("excluded_devices", [])[index]
+        sensor_id = device.get("power_sensor", "")
+        friendly = sensor_id.replace("sensor.", "").replace("_", " ").title()
+
+        self._attr_has_entity_name = True
+        self._attr_translation_key = "excluded_device_exclusion_pct"
+        self._attr_translation_placeholders = {"device": friendly}
+        self._attr_unique_id = f"marstek_venus_system_exclusion_pct_{index}"
+        self.entity_id = system_entity_id("number", f"exclusion_pct_{index}")
+        self._attr_icon = "mdi:battery-charging-50"
+        self._attr_native_unit_of_measurement = "%"
+        self._attr_native_min_value = 0
+        self._attr_native_max_value = 100
+        self._attr_native_step = 5
+        self._attr_mode = NumberMode.SLIDER
+        self._attr_entity_category = EntityCategory.CONFIG
+        self._attr_should_poll = False
+
+    async def async_added_to_hass(self) -> None:
+        """Re-render the slider when config_entry.data changes (e.g. reconfigure)."""
+        self.async_on_remove(self.entry.add_update_listener(self._handle_entry_update))
+
+    async def _handle_entry_update(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> float:
+        """Return the current exclusion percentage (default 100 = fully excluded)."""
+        devices = self.entry.data.get("excluded_devices", [])
+        if self._device_index < len(devices):
+            return float(devices[self._device_index].get("exclusion_pct", 100))
+        return 100.0
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Persist the exclusion percentage for this device in config_entry.data."""
+        new_data = dict(self.entry.data)
+        devices = [dict(d) for d in new_data.get("excluded_devices", [])]
+        if self._device_index < len(devices):
+            devices[self._device_index]["exclusion_pct"] = int(value)
+            new_data["excluded_devices"] = devices
+            self.hass.config_entries.async_update_entry(self.entry, data=new_data)
+            _LOGGER.info(
+                "Exclusion percentage for device %d (%s) → %d%%",
+                self._device_index + 1,
+                devices[self._device_index].get("power_sensor", ""),
+                int(value),
+            )
         self.async_write_ha_state()
 
     @property

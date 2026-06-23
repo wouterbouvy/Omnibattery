@@ -1342,6 +1342,9 @@
       }
     },
     "number": {
+      "excluded_device_exclusion_pct": {
+        "name": "{device} – % exclòs"
+      },
       "set_charge_power": {
         "name": "Potència de Càrrega"
       },

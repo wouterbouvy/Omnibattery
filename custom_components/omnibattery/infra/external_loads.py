@@ -52,6 +52,21 @@ class ExternalLoads:
         self._config_entry = config_entry
         self._controller = controller
 
+    @staticmethod
+    def _exclusion_factor(device: dict) -> float:
+        """Fraction of a device's demand to keep excluded from the battery.
+
+        Set per-device at runtime via the excluded_device_exclusion_pct slider.
+        100 (default) → 1.0 (fully excluded, battery covers 0%).
+        60 → 0.6 (battery is allowed to cover the remaining 40%).
+        Only meaningful for the included_in_consumption (exclusion) path.
+        """
+        try:
+            pct = float(device.get("exclusion_pct", 100))
+        except (ValueError, TypeError):
+            return 1.0
+        return max(0.0, min(100.0, pct)) / 100.0
+
     def consumption_delta_kw(self) -> float:
         """Net kW correction to apply to the home sensor for excluded-device accounting.
 
@@ -85,7 +100,7 @@ class ExternalLoads:
             unit = state.attributes.get("unit_of_measurement", "W")
             device_kw = power_w / 1000.0 if unit == "W" else power_w
             if device.get("included_in_consumption", True):
-                delta -= device_kw
+                delta -= device_kw * self._exclusion_factor(device)
             else:
                 delta += device_kw
 
@@ -147,6 +162,8 @@ class ExternalLoads:
                 device_power = device_power_raw if unit == "W" else device_power_raw * 1000.0
                 included_in_consumption = device.get("included_in_consumption", True)
                 allow_solar_surplus = device.get("allow_solar_surplus", False)
+                # Per-device slider: fraction of demand kept excluded (100% = full).
+                factor = self._exclusion_factor(device)
 
                 if included_in_consumption:
                     if allow_solar_surplus:
@@ -156,7 +173,7 @@ class ExternalLoads:
                             # PD drives battery to cover home deficit and charge solar surplus
                             # without ever discharging for the device.
                             solar_power_w = self._read_sensor_w(solar_sensor_id)
-                            grid_portion = max(0.0, device_power - solar_power_w)
+                            grid_portion = max(0.0, device_power - solar_power_w) * factor
                             total_adjustment += grid_portion
                             included_adjustment += grid_portion
                             _LOGGER.debug(
@@ -172,10 +189,10 @@ class ExternalLoads:
                                 power_sensor, device_power, device_power > 10,
                             )
                     else:
-                        total_adjustment += device_power
-                        included_adjustment += device_power
-                        _LOGGER.debug("Excluded device %s consuming %.1fW (included in consumption, SUBTRACTING)",
-                                    power_sensor, device_power)
+                        total_adjustment += device_power * factor
+                        included_adjustment += device_power * factor
+                        _LOGGER.debug("Excluded device %s consuming %.1fW (included in consumption, SUBTRACTING %.0f%%)",
+                                    power_sensor, device_power, factor * 100)
                 else:
                     # Device is NOT in home sensor → ADD (power from battery)
                     total_adjustment -= device_power

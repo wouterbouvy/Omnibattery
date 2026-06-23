@@ -932,6 +932,7 @@ class ConfigurationSummarySensor(SensorEntity):
             attrs[f"excluded_device_{n}_enabled"] = dev.get("enabled", True)
             attrs[f"excluded_device_{n}_included_in_consumption"] = dev.get("included_in_consumption", True)
             attrs[f"excluded_device_{n}_allow_solar_surplus"] = dev.get("allow_solar_surplus", False)
+            attrs[f"excluded_device_{n}_exclusion_pct"] = dev.get("exclusion_pct", 100)
             attrs[f"excluded_device_{n}_ev_charger_no_telemetry"] = dev.get(
                 "ev_charger_no_telemetry", False
             )

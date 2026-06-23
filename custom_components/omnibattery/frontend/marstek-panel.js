@@ -88,7 +88,7 @@ const I18N = {
     itemDelaySafety: "Safety margin", itemDelaySoc: "Delay target SOC",
     secHourly: "Hourly balance", hourlyEsOnly: "Only useful in Spain (RD 244/2019) · detected country: {c}", secWeeklyFull: "Weekly full charge", itemWeeklyDay: "Full charge day",
     secSlots: "Configured slots", itemSlot: "Slot",
-    secExcluded: "Excluded devices", itemExcludedDevice: "Excluded device", itemSolarSurplus: "Solar surplus",
+    secExcluded: "Excluded devices", itemExcludedDevice: "Excluded device", itemSolarSurplus: "Solar surplus", itemExclusionPct: "Exclusion %",
     secSysLimits: "System power limits", itemSysMaxCharge: "System max charge", itemSysMaxDischarge: "System max discharge",
     secCommon: "Common control (PD + No-PD)",
     secPd: "PD controller (advanced)",
@@ -152,7 +152,7 @@ const I18N = {
     itemDelaySafety: "Margen de seguridad", itemDelaySoc: "SOC objetivo de retardo",
     secHourly: "Balance horario", hourlyEsOnly: "Solo útil en España (RD 244/2019) · país detectado: {c}", secWeeklyFull: "Carga semanal completa", itemWeeklyDay: "Día de carga completa",
     secSlots: "Franjas configuradas", itemSlot: "Franja",
-    secExcluded: "Dispositivos excluidos", itemExcludedDevice: "Dispositivo excluido", itemSolarSurplus: "Excedente solar",
+    secExcluded: "Dispositivos excluidos", itemExcludedDevice: "Dispositivo excluido", itemSolarSurplus: "Excedente solar", itemExclusionPct: "% excluido",
     secSysLimits: "Límites de potencia del sistema", itemSysMaxCharge: "Máx. carga del sistema", itemSysMaxDischarge: "Máx. descarga del sistema",
     secCommon: "Control común (PD + No-PD)",
     secPd: "Controlador PD (avanzado)",
@@ -214,7 +214,7 @@ const I18N = {
     itemDelaySafety: "Marge de seguretat", itemDelaySoc: "SOC objectiu de retard",
     secHourly: "Balanç horari", hourlyEsOnly: "Només útil a Espanya (RD 244/2019) · país detectat: {c}", secWeeklyFull: "Càrrega setmanal completa", itemWeeklyDay: "Dia de càrrega completa",
     secSlots: "Franges configurades", itemSlot: "Franja",
-    secExcluded: "Dispositius exclosos", itemExcludedDevice: "Dispositiu exclòs", itemSolarSurplus: "Excedent solar",
+    secExcluded: "Dispositius exclosos", itemExcludedDevice: "Dispositiu exclòs", itemSolarSurplus: "Excedent solar", itemExclusionPct: "% exclòs",
     secSysLimits: "Límits de potència del sistema", itemSysMaxCharge: "Màx. càrrega del sistema", itemSysMaxDischarge: "Màx. descàrrega del sistema",
     secCommon: "Control comú (PD + No-PD)",
     secPd: "Controlador PD (avançat)",
@@ -276,7 +276,7 @@ const I18N = {
     itemDelaySafety: "Sicherheitspuffer", itemDelaySoc: "Verzögerungs-Ziel-SOC",
     secHourly: "Stündliche Balance", hourlyEsOnly: "Nur in Spanien sinnvoll (RD 244/2019) · erkanntes Land: {c}", secWeeklyFull: "Wöchentliche Vollladung", itemWeeklyDay: "Tag der Vollladung",
     secSlots: "Konfigurierte Zeitfenster", itemSlot: "Zeitfenster",
-    secExcluded: "Ausgeschlossene Geräte", itemExcludedDevice: "Ausgeschlossenes Gerät", itemSolarSurplus: "Solarüberschuss",
+    secExcluded: "Ausgeschlossene Geräte", itemExcludedDevice: "Ausgeschlossenes Gerät", itemSolarSurplus: "Solarüberschuss", itemExclusionPct: "Ausschluss %",
     secSysLimits: "System-Leistungsgrenzen", itemSysMaxCharge: "System-Max.-Ladeleistung", itemSysMaxDischarge: "System-Max.-Entladeleistung",
     secCommon: "Gemeinsame Regelung (PD + No-PD)",
     secPd: "PD-Regler (erweitert)",
@@ -338,7 +338,7 @@ const I18N = {
     itemDelaySafety: "Marge de sécurité", itemDelaySoc: "SOC cible du délai",
     secHourly: "Bilan horaire", hourlyEsOnly: "Utile uniquement en Espagne (RD 244/2019) · pays détecté : {c}", secWeeklyFull: "Charge complète hebdomadaire", itemWeeklyDay: "Jour de charge complète",
     secSlots: "Créneaux configurés", itemSlot: "Créneau",
-    secExcluded: "Appareils exclus", itemExcludedDevice: "Appareil exclu", itemSolarSurplus: "Surplus solaire",
+    secExcluded: "Appareils exclus", itemExcludedDevice: "Appareil exclu", itemSolarSurplus: "Surplus solaire", itemExclusionPct: "% exclu",
     secSysLimits: "Limites de puissance du système", itemSysMaxCharge: "Charge max. système", itemSysMaxDischarge: "Décharge max. système",
     secCommon: "Contrôle commun (PD + No-PD)",
     secPd: "Régulateur PD (avancé)",
@@ -400,7 +400,7 @@ const I18N = {
     itemDelaySafety: "Veiligheidsmarge", itemDelaySoc: "Doel-SOC vertraging",
     secHourly: "Uurbalans", hourlyEsOnly: "Alleen nuttig in Spanje (RD 244/2019) · gedetecteerd land: {c}", secWeeklyFull: "Wekelijkse volledige lading", itemWeeklyDay: "Dag volledige lading",
     secSlots: "Geconfigureerde tijdvakken", itemSlot: "Tijdvak",
-    secExcluded: "Uitgesloten apparaten", itemExcludedDevice: "Uitgesloten apparaat", itemSolarSurplus: "Zonne-overschot",
+    secExcluded: "Uitgesloten apparaten", itemExcludedDevice: "Uitgesloten apparaat", itemSolarSurplus: "Zonne-overschot", itemExclusionPct: "Uitsluiting %",
     secSysLimits: "Systeemvermogenslimieten", itemSysMaxCharge: "Max. systeemladen", itemSysMaxDischarge: "Max. systeemontladen",
     secCommon: "Gemeenschappelijke regeling (PD + No-PD)",
     secPd: "PD-regelaar (geavanceerd)",
@@ -620,6 +620,7 @@ const SYS_SECTIONS = [
     items: [
       { key: "excluded_device_enabled", domain: "switch", lk: "itemExcludedDevice", icon: "mdi:power-plug-off", useName: true },
       { key: "excluded_device_solar_surplus", domain: "switch", lk: "itemSolarSurplus", icon: "mdi:solar-power", useName: true },
+      { key: "excluded_device_exclusion_pct", domain: "number", lk: "itemExclusionPct", icon: "mdi:battery-charging-50", useName: true },
     ],
   },
   {
@@ -753,6 +754,7 @@ const SYS_HELP = {
     secSysLimits: "When enabled, the two sliders below cap the combined charge/discharge power of all active batteries.",
     excluded_device_enabled: "✓ CHECKED = Home sensor ALREADY includes this device → Battery will NOT power it (excluded). ✗ UNCHECKED = Home sensor doesn't see it → Battery WILL power it (additional)",
     excluded_device_solar_surplus: "If checked, the device will be able to consume energy directly from solar panels (surplus) without the battery trying to compensate. Recommended for high consumption devices like EV chargers.",
+    excluded_device_exclusion_pct: "How much of this device's demand stays excluded from the battery. 100% (default) = fully excluded (battery never powers it); lower values let the battery cover the rest (e.g. 60% → battery may cover 40%). Only affects devices with a power sensor.",
     weekly_full_charge_day: "Day when batteries will charge to 100% regardless of configured max SOC. This helps balance battery cells.",
     pd_tuning_profile: "One-click PD presets, smoothest → fastest. Sets Kp, Kd and max power change together (deadband stays separate). Moving any of those sliders switches to Custom. Smoother = calmer but slower; more aggressive = faster but can overshoot.",
     system_pd_control_quality: "How well the PD holds the grid target. Stable = good; Oscillating = hunting (try a smoother profile or a wider deadband); Sluggish = too slow (try a more aggressive profile); Battery limited = battery full/empty, not a tuning problem. Allow 1-2 min after a change.",
@@ -792,6 +794,7 @@ const SYS_HELP = {
     secSysLimits: "Al activarlo, los dos sliders inferiores limitan la potencia combinada de carga/descarga de todas las baterias activas.",
     excluded_device_enabled: "✓ MARCADO = El sensor de consumo del hogar YA incluye este dispositivo → La batería NO lo alimentará (excluido). ✗ DESMARCADO = El sensor del hogar NO lo ve → La batería SÍ lo alimentará (adicional)",
     excluded_device_solar_surplus: "Si se marca, el dispositivo podrá consumir energía directamente de los paneles solares (excedente) sin que la batería intente compensarlo. Se recomienda marcar para dispositivos de gran consumo como cargadores de VE.",
+    excluded_device_exclusion_pct: "Qué parte de la demanda de este aparato se mantiene excluida de la batería. 100% (por defecto) = totalmente excluido (la batería nunca lo alimenta); valores menores dejan que la batería cubra el resto (ej. 60% → la batería puede cubrir el 40%). Solo afecta a aparatos con sensor de potencia.",
     weekly_full_charge_day: "Día en el que las baterías se cargarán al 100% independientemente del SOC máximo configurado. Esto ayuda a equilibrar las celdas de la batería.",
     pd_tuning_profile: "Presets de PD en un clic, de más suave a más rápido. Ajusta Kp, Kd y el cambio máx. de potencia a la vez (el deadband va aparte). Mover cualquiera de esos sliders pasa a Personalizado. Más suave = más calmado pero lento; más agresivo = más rápido pero puede sobreoscilar.",
     system_pd_control_quality: "Cómo de bien mantiene el PD el objetivo de red. Estable = bien; Oscilando = cabeceo (usa un perfil más suave o sube el deadband); Lento = demasiado lento (usa un perfil más agresivo); Limitado por batería = batería llena/vacía, no es problema de ajuste. Espera 1-2 min tras un cambio.",
@@ -1156,8 +1159,15 @@ class MarstekVenusPanel extends HTMLElement {
       // Only devices the home sensor already includes (included_in_consumption
       // !== false) may be subtracted from the Home node. "Additional" devices
       // are not in the home sensor, so subtracting them would wrongly drive
-      // Home toward 0.
-      if (a[`excluded_device_${i}_included_in_consumption`] !== false) included += w;
+      // Home toward 0. Scale by the exclusion % slider: only the excluded
+      // fraction leaves Home — the rest is load the battery now covers, so it
+      // stays in the Home node. (The excluded-devices node still shows the
+      // device's full draw via `total`.)
+      if (a[`excluded_device_${i}_included_in_consumption`] !== false) {
+        const pct = Number(a[`excluded_device_${i}_exclusion_pct`]);
+        const factor = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) / 100 : 1;
+        included += w * factor;
+      }
     }
     return total == null ? null : { total, included };
   }

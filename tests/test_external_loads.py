@@ -243,6 +243,55 @@ def test_adjustment_skips_unusable_devices(device):
 
 
 # ----------------------------------------------------------------------
+# exclusion_pct slider: scales the excluded portion (100 = full, default).
+# ----------------------------------------------------------------------
+
+def test_exclusion_pct_partial_scales_adjustment():
+    # 60% excluded → battery covers 40% → only 60% of 500 W is excluded.
+    loads = _controller(
+        [_device(included_in_consumption=True, exclusion_pct=60)],
+        {"sensor.dev": _state(500)},
+    )
+    assert loads.calculate_adjustment() == pytest.approx(300.0)
+    assert loads._controller._excluded_included_adjustment == pytest.approx(300.0)
+
+
+def test_exclusion_pct_partial_scales_delta_kw():
+    loads = _controller(
+        [_device(included_in_consumption=True, exclusion_pct=60)],
+        {"sensor.dev": _state(500)},
+    )
+    assert loads.consumption_delta_kw() == pytest.approx(-0.3)
+
+
+def test_exclusion_pct_zero_means_no_exclusion():
+    loads = _controller(
+        [_device(included_in_consumption=True, exclusion_pct=0)],
+        {"sensor.dev": _state(500)},
+    )
+    assert loads.calculate_adjustment() == pytest.approx(0.0)
+
+
+def test_exclusion_pct_scales_solar_surplus_grid_portion():
+    # device=4500, solar=1000 → over-solar portion 3500 W, scaled by 50% → 1750 W
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=True, exclusion_pct=50)],
+        {"sensor.dev": _state(4500), "sensor.solar": _state(1000)},
+        solar_production_sensor="sensor.solar",
+    )
+    assert loads.calculate_adjustment() == pytest.approx(1750.0)
+
+
+def test_exclusion_pct_default_is_full_exclusion():
+    # No exclusion_pct key → factor 1.0 (unchanged from original behaviour).
+    loads = _controller(
+        [_device(included_in_consumption=True)],
+        {"sensor.dev": _state(500)},
+    )
+    assert loads.calculate_adjustment() == pytest.approx(500.0)
+
+
+# ----------------------------------------------------------------------
 # check_ev_charger_state  (no-telemetry EV: 5-min pause then discharge-block)
 # Time-dependent: a frozen clock drives the pause window. Returns
 # (pause_active, ev_charging_active).
