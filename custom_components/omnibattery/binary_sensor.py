@@ -95,6 +95,10 @@ class ChargeHysteresisActiveSensor(RestoreEntity, BinarySensorEntity):
     below (max_soc - hysteresis_percent).
     """
 
+    # current_soc changes every poll, so recording it rewrites the whole row
+    # each cycle for no history value. Restore reads only .state, never attrs.
+    _unrecorded_attributes = frozenset({"current_soc"})
+
     def __init__(self, coordinator: MarstekVenusDataUpdateCoordinator) -> None:
         """Initialize the hysteresis sensor."""
         self.coordinator = coordinator
@@ -175,6 +179,13 @@ class ChargeHysteresisActiveSensor(RestoreEntity, BinarySensorEntity):
 class CapacityProtectionStatusSensor(BinarySensorEntity):
     """Binary sensor indicating if capacity protection is currently intervening."""
 
+    # While protection is active these numerics change every poll; keep the
+    # on/off state + action/threshold in history, drop the per-cycle churn.
+    _unrecorded_attributes = frozenset({
+        "avg_soc", "peak_limit_w", "estimated_house_load_w",
+        "original_target_w", "adjusted_target_w",
+    })
+
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, controller) -> None:
         """Initialize the status sensor."""
         self.hass = hass
@@ -223,6 +234,25 @@ class CapacityProtectionStatusSensor(BinarySensorEntity):
 
 class PredictiveChargingStatusSensor(BinarySensorEntity):
     """Binary sensor indicating if predictive grid charging is currently active."""
+
+    # This diagnostic sensor carries a large attribute payload that the recorder
+    # would re-serialize on every poll. Exclude the heavy structures (lists/dicts)
+    # and the per-cycle accumulators so only a small, stable row is recorded; the
+    # live state keeps all attributes (panel + the hass.states.get() history-
+    # restore fallback are unaffected — neither reads from recorder history).
+    _unrecorded_attributes = frozenset({
+        # heavy nested structures
+        "active_slot_per_battery", "manual_slot_owned",
+        "daily_consumption_history", "history_days",
+        "predictive_target_soc_pct", "selected_hours",
+        # per-cycle accumulators
+        "household_consumption_battery_window_kwh", "solar_production_today_kwh",
+        # last-decision diagnostic dump (changes on every evaluation)
+        "stored_energy_kwh", "usable_energy_kwh", "min_reserve_kwh",
+        "cutoff_energy_kwh", "effective_min_soc", "avg_consumption_kwh",
+        "total_available_kwh", "energy_deficit_kwh", "solar_forecast_kwh",
+        "solar_surplus_kwh", "grid_charge_kwh", "decision_reason",
+    })
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, controller) -> None:
         """Initialize the status sensor."""
