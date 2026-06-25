@@ -269,6 +269,10 @@ class PricingManager:
         # Step 1: Energy balance
         decision_data = await self._controller._should_activate_grid_charging()
         self._controller._last_decision_data = decision_data
+        # Reference SOC for the SOC-drop re-evaluation (#411): this is read before
+        # the overnight discharge, so a battery that drains far below it must be
+        # able to re-plan upward in time for the cheap midday slots.
+        self._controller._dp_last_eval_soc = decision_data.get("avg_soc")
         charging_needed = decision_data["should_charge"]
 
         # Step 2: Parse price data (always, even without deficit — for diagnostics)
@@ -488,6 +492,26 @@ class PricingManager:
 
         return now_h >= trigger_h
 
+    def _is_dp_soc_drop_reeval(self) -> bool:
+        """Return True when live SOC has fallen ≥ threshold below the last DP eval.
+
+        Mirrors the time-slot handler's SOC-drop re-evaluation (#411): the 00:05
+        energy-balance read happens before the overnight discharge, so a battery
+        that drains far below the evaluated level must be able to re-plan upward
+        in time for the cheap midday slots — not just at the late-day evening
+        pass. Directional (only drops trigger); debounced by resetting
+        ``_dp_last_eval_soc`` on each re-eval, so it re-arms only after another
+        drop. ``None`` reference (before the 00:05 eval) never triggers.
+        """
+        ref = self._controller._dp_last_eval_soc
+        if ref is None:
+            return False
+        coords = [c for c in self._controller.coordinators if c.data]
+        if not coords:
+            return False
+        current = sum(c.data.get("battery_soc", 0) for c in coords) / len(coords)
+        return (ref - current) >= SOC_REEVALUATION_THRESHOLD
+
     @staticmethod
     def _project_remaining_consumption(
         now_h: float, consumed_today_kwh: float, avg_daily_kwh: float
@@ -527,8 +551,9 @@ class PricingManager:
         from datetime import datetime
 
         now = datetime.now()
-        today = now.date()
-        self._controller._dp_evening_reevaluated_date = today  # mark before any early-returns
+        # The evening-time once-per-day guard (_dp_evening_reevaluated_date) is set
+        # by the handler only on the evening-time trigger, so a SOC-drop-triggered
+        # run here does not consume the late-day pass. #411
 
         _LOGGER.info("Dynamic pricing: running evening re-evaluation at %s", now.strftime("%H:%M"))
 
@@ -540,6 +565,13 @@ class PricingManager:
         if not coordinators_with_data:
             _LOGGER.info("Evening recharge: no battery data, skipping")
             return
+
+        # SOC-drop debounce (#411): reset the reference to the current level now,
+        # before any later early-return, so the next drop trigger is measured from
+        # here (re-arms only after another SOC_REEVALUATION_THRESHOLD drop).
+        self._controller._dp_last_eval_soc = sum(
+            c.data.get("battery_soc", 0) for c in coordinators_with_data
+        ) / len(coordinators_with_data)
 
         # Room to each battery's max_soc — the physical cap on how much the
         # evening top-up can add.
@@ -630,7 +662,27 @@ class PricingManager:
             slots = [s for s in slots if s.start not in scheduled_starts]
 
         if not slots:
-            _LOGGER.info("Evening recharge: no additional slots available (all already scheduled)")
+            # The cheap slots are already in the schedule — but it may be the
+            # informational 00:05 schedule (charging_needed=False) whose slots were
+            # never armed. With a real deficit, promote it to actually charge those
+            # upcoming slots and publish the deficit for the enforcer. #411
+            sched = self._controller._dynamic_pricing_schedule
+            upcoming = [s for s in sched.selected_slots if s.start > now] if sched else []
+            if upcoming and not sched.charging_needed:
+                sched.charging_needed = True
+                decision = self._controller._last_decision_data
+                if not isinstance(decision, dict):
+                    decision = {}
+                decision["energy_deficit_kwh"] = evening_deficit_kwh
+                self._controller._last_decision_data = decision
+                _LOGGER.info(
+                    "Evening recharge: promoted informational schedule to charging "
+                    "(%.2f kWh deficit, %d upcoming slot(s))",
+                    evening_deficit_kwh, len(upcoming),
+                )
+                await self._send_evening_recharge_notification(evening_deficit_kwh, upcoming)
+            else:
+                _LOGGER.info("Evening recharge: no additional slots available (all already scheduled)")
             return
 
         hours_needed = calculations.calculate_charging_hours_needed(
@@ -735,8 +787,15 @@ class PricingManager:
         # Phase 2.5: Pre-slot re-evaluation (1h before each upcoming slot)
         await self._check_dp_pre_slot_reevaluation()
 
-        # Phase 2.6: Evening re-evaluation when solar is winding down
-        if self._is_evening_reevaluation_time():
+        # Phase 2.6: Re-evaluate upward when solar winds down (evening) OR when live
+        # SOC has fallen far below the level the 00:05 balance assumed (#411). The
+        # evening-time guard is set only on the evening-time trigger, so a SOC-drop
+        # run does not consume the late-day pass.
+        trigger_evening = self._is_evening_reevaluation_time()
+        trigger_soc_drop = self._is_dp_soc_drop_reeval()
+        if trigger_evening or trigger_soc_drop:
+            if trigger_evening:
+                self._controller._dp_evening_reevaluated_date = now.date()
             await self._evaluate_evening_recharge()
 
         # Phase 3: Daily reset at midnight
@@ -751,6 +810,7 @@ class PricingManager:
                 self._controller._dp_pre_evaluated_slots = {}
                 self._controller._dp_daily_avg_price = None
                 self._controller._dp_evening_reevaluated_date = None
+                self._controller._dp_last_eval_soc = None
 
         # Phase 4: Check if we're in a selected cheap slot
         if self._controller._dynamic_pricing_schedule and not self._controller.predictive_charging_overridden:

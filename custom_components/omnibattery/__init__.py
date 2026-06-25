@@ -540,6 +540,7 @@ class ChargeDischargeController:
         self._dp_pre_evaluated_slots: dict = {}  # slot.start (datetime) → should_charge (bool)
         self._price_data_status = "not_evaluated"
         self._dp_evening_reevaluated_date = None  # Prevent multiple evening re-evaluations per day
+        self._dp_last_eval_soc = None  # avg SOC at last DP (re)eval; SOC-drop reeval reference (#411)
         self._pricing_mgr = PricingManager(hass, self)
 
         # Consumption history for dynamic base consumption (7-day rolling average)

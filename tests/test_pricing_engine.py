@@ -120,6 +120,44 @@ def test_evening_reeval_false_when_already_done_today():
 
 
 # ----------------------------------------------------------------------
+# _is_dp_soc_drop_reeval (SOC-drop upward re-eval, #411)
+# ----------------------------------------------------------------------
+
+def _coord(soc):
+    """Coordinator stand-in exposing only ``data['battery_soc']``."""
+    return SimpleNamespace(data={"battery_soc": soc})
+
+
+def test_soc_drop_reeval_false_when_no_reference():
+    # Before the 00:05 eval sets a reference, the trigger never fires.
+    ctrl = _controller(_dp_last_eval_soc=None, coordinators=[_coord(20)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is False
+
+
+def test_soc_drop_reeval_true_on_large_drop():
+    # Reporter's case: eval'd at 60%, woke to 24% → 36% drop ≥ 30% threshold.
+    ctrl = _controller(_dp_last_eval_soc=60.0, coordinators=[_coord(24)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is True
+
+
+def test_soc_drop_reeval_false_below_threshold():
+    # 60 → 40 is a 20% drop, under the 30% threshold.
+    ctrl = _controller(_dp_last_eval_soc=60.0, coordinators=[_coord(40)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is False
+
+
+def test_soc_drop_reeval_false_on_soc_rise():
+    # Directional: a rise (charged up) never triggers an upward re-plan.
+    ctrl = _controller(_dp_last_eval_soc=30.0, coordinators=[_coord(70)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is False
+
+
+def test_soc_drop_reeval_false_when_no_coordinator_data():
+    ctrl = _controller(_dp_last_eval_soc=60.0, coordinators=[SimpleNamespace(data=None)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is False
+
+
+# ----------------------------------------------------------------------
 # _project_remaining_consumption (evening recharge deficit, #409)
 # ----------------------------------------------------------------------
 
