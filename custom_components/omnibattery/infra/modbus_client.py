@@ -139,10 +139,16 @@ class MarstekModbusClient:
         # Create pymodbus async TCP client instance with auto-reconnect disabled.
         # We manage reconnection ourselves by creating fresh client instances,
         # which avoids pymodbus's internal reconnect_delay growing up to 300s.
+        # retries=0: our _read_raw loop already owns retries+backoff. pymodbus's
+        # default 3 internal retries each fire a NEW transaction_id, which is what
+        # surfaces as the "transaction_id mismatch" cascade on the weak v3 MCU
+        # (issue #361). Letting our loop be the sole retry layer cuts frames and
+        # transaction_ids in flight.
         self.client = AsyncModbusTcpClient(
             host=host,
             port=port,
             timeout=timeout,
+            retries=0,
             reconnect_delay=0,
             reconnect_delay_max=0,
         )
@@ -204,6 +210,7 @@ class MarstekModbusClient:
                 host=self._host,
                 port=self._port,
                 timeout=self._timeout,
+                retries=0,
                 reconnect_delay=0,
                 reconnect_delay_max=0,
             )
