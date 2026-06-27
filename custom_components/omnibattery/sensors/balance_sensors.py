@@ -83,12 +83,7 @@ class _BalanceBaseSensor(SensorEntity):
 
     @property
     def device_info(self) -> dict:
-        return {
-            "identifiers": {(DOMAIN, f"{self._coordinator.device_key}")},
-            "name": self._coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self._coordinator.battery_device_info
 
 
 # ---------------------------------------------------------------------------

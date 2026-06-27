@@ -99,12 +99,7 @@ class MarstekVenusSelect(CoordinatorEntity, SelectEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 WEEKDAY_OPTIONS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
@@ -286,11 +281,6 @@ class MarstekManualForceModeSelect(CoordinatorEntity, SelectEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 

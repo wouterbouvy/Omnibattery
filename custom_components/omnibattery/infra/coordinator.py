@@ -253,6 +253,21 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
             return f"{self.host}_{self.port}"
         return f"{self.host}_{self.port}_{self.slave_id}"
 
+    @property
+    def battery_device_info(self) -> dict:
+        """Per-battery device registry entry shared by every platform.
+
+        Manufacturer/model follow the active driver so a Zendure unit shows as
+        Zendure (not the historical hard-coded "Marstek"/"Venus"). HA updates the
+        existing device on the next start, so no migration is needed.
+        """
+        return {
+            "identifiers": {(DOMAIN, f"{self.device_key}")},
+            "name": self.name,
+            "manufacturer": "Zendure" if self.brand == "zendure" else "Marstek",
+            "model": self.driver.model_label or ("Zendure" if self.brand == "zendure" else "Venus"),
+        }
+
     async def connect(self) -> bool:
         """Connect to the battery via the driver."""
         connected = await self.driver.connect()

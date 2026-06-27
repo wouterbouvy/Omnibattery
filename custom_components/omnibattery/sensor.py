@@ -326,12 +326,7 @@ class MarstekVenusSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class DischargeWindowSensor(SensorEntity):

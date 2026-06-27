@@ -202,12 +202,7 @@ class MarstekVenusNumber(CoordinatorEntity, NumberEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class MarstekConfigNumberEntity(NumberEntity):
@@ -496,12 +491,7 @@ class MarstekSoftSocLimitNumber(CoordinatorEntity, NumberEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class MarstekBackupThresholdNumber(CoordinatorEntity, NumberEntity):
@@ -543,12 +533,7 @@ class MarstekBackupThresholdNumber(CoordinatorEntity, NumberEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class MarstekManualSetPowerNumber(CoordinatorEntity, NumberEntity):
@@ -623,12 +608,7 @@ class MarstekManualSetPowerNumber(CoordinatorEntity, NumberEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class MarstekSoftMaxChargeNumber(CoordinatorEntity, NumberEntity):
@@ -678,12 +658,7 @@ class MarstekSoftMaxChargeNumber(CoordinatorEntity, NumberEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class MarstekChargeHysteresisNumber(CoordinatorEntity, NumberEntity):
@@ -726,9 +701,4 @@ class MarstekChargeHysteresisNumber(CoordinatorEntity, NumberEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info

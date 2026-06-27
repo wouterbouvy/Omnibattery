@@ -158,12 +158,7 @@ class MarstekVenusSwitch(CoordinatorEntity, SwitchEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class BatteryAllowOperationSwitch(SwitchEntity):
@@ -258,12 +253,7 @@ class BatteryAllowOperationSwitch(SwitchEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class BatteryAllowChargeSwitch(BatteryAllowOperationSwitch):
@@ -327,12 +317,7 @@ class BatteryFullChargeVoltageTaperSwitch(SwitchEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class BatteryActiveBalanceModeSwitch(SwitchEntity):
@@ -376,12 +361,7 @@ class BatteryActiveBalanceModeSwitch(SwitchEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class PredictiveChargingSwitch(SwitchEntity):

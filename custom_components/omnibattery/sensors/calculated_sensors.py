@@ -209,12 +209,7 @@ class MarstekVenusEfficiencySensor(CoordinatorEntity, RestoreEntity, SensorEntit
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class MarstekVenusStoredEnergySensor(CoordinatorEntity, SensorEntity):
@@ -259,12 +254,7 @@ class MarstekVenusStoredEnergySensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class MarstekVenusCycleSensor(CoordinatorEntity, SensorEntity):
@@ -305,12 +295,7 @@ class MarstekVenusCycleSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class MarstekVenusSolarPowerSensor(CoordinatorEntity, SensorEntity):
@@ -350,12 +335,7 @@ class MarstekVenusSolarPowerSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 # Synthesised charge/discharge energy for drivers without hardware counters
@@ -546,12 +526,7 @@ class SyntheticEnergySensor(CoordinatorEntity, RestoreEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class SyntheticCapacitySensor(CoordinatorEntity, SensorEntity):
@@ -586,12 +561,7 @@ class SyntheticCapacitySensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class ZendurePackSensor(CoordinatorEntity, SensorEntity):
@@ -644,12 +614,7 @@ class ZendurePackSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device information (same device as the battery)."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
 
 
 class MarstekVenusBatteryCellPowerSensor(CoordinatorEntity, SensorEntity):
@@ -699,9 +664,4 @@ class MarstekVenusBatteryCellPowerSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
-            "name": self.coordinator.name,
-            "manufacturer": "Marstek",
-            "model": "Venus",
-        }
+        return self.coordinator.battery_device_info
