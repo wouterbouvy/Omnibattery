@@ -159,12 +159,6 @@
           "battery_6__soc_max": "Battery 6 — Max SOC (%)",
           "battery_6__max_charge_power_w": "Battery 6 — Max charge power",
           "battery_6__max_discharge_power_w": "Battery 6 — Max discharge power"
-        },
-        "data_description": {
-          "soc_min": "The battery will not discharge below this SOC during the slot (minimum 12%).",
-          "soc_max": "The battery will not charge above this SOC during the slot (maximum 100%).",
-          "max_charge_power_w": "In PD mode this is the dynamic ceiling. In manual mode it is the exact charge power.",
-          "max_discharge_power_w": "In PD mode this is the dynamic ceiling. In manual mode it is the exact discharge power."
         }
       },
       "add_more_slots": {
@@ -648,12 +642,6 @@
           "battery_6__soc_max": "Battery 6 — Max SOC (%)",
           "battery_6__max_charge_power_w": "Battery 6 — Max charge power",
           "battery_6__max_discharge_power_w": "Battery 6 — Max discharge power"
-        },
-        "data_description": {
-          "soc_min": "The battery will not discharge below this SOC during the slot (minimum 12%).",
-          "soc_max": "The battery will not charge above this SOC during the slot (maximum 100%).",
-          "max_charge_power_w": "In PD mode this is the dynamic ceiling. In manual mode it is the exact charge power.",
-          "max_discharge_power_w": "In PD mode this is the dynamic ceiling. In manual mode it is the exact discharge power."
         }
       },
       "add_more_slots": {

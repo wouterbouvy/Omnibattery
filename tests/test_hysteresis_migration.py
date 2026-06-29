@@ -11,7 +11,8 @@ Spec: hysteresis is no longer optional. Per battery:
 A config entry on version 7 exercises the v8 branch (data-only). The newer v9
 branch heals the entity registry, which the light no-``hass``-fixture fakes can't
 provide, so we patch the two entity_registry helpers it calls to no-op here (the
-v9 heal has its own dedicated registry test).
+v9 heal has its own dedicated registry test). v10 renames the title, handled by
+accepting the kwarg in the fake.
 """
 from __future__ import annotations
 
@@ -40,7 +41,7 @@ class _FakeConfigEntries:
     def __init__(self):
         self.updated = None
 
-    def async_update_entry(self, entry, *, data, version):
+    def async_update_entry(self, entry, *, data, version, title=None):
         self.updated = {"data": data, "version": version}
         entry.data = data
         entry.version = version
@@ -52,7 +53,7 @@ def _migrate(batteries):
     with _no_registry():
         result = asyncio.run(async_migrate_entry(hass, entry))
     assert result is True
-    assert hass.config_entries.updated["version"] == 9
+    assert hass.config_entries.updated["version"] == 10
     return hass.config_entries.updated["data"]["batteries"]
 
 
@@ -80,8 +81,8 @@ def test_enabled_below_floor_is_clamped_up():
     assert out[0]["charge_hysteresis_percent"] == MIN_CHARGE_HYSTERESIS_PERCENT
 
 
-def test_already_v9_is_noop():
+def test_already_v10_is_noop():
     hass = SimpleNamespace(config_entries=_FakeConfigEntries())
-    entry = SimpleNamespace(version=9, data={"batteries": [{}]})
+    entry = SimpleNamespace(version=10, data={"batteries": [{}]})
     assert asyncio.run(async_migrate_entry(hass, entry)) is True
     assert hass.config_entries.updated is None  # nothing rewritten
