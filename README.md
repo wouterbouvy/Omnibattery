@@ -31,12 +31,13 @@ If you find this integration useful, you can support my work:
 
 Full documentation (configuration, features, entities, troubleshooting) is available at:
 
-**[https://ffunes.github.io/Marstek-Venus-Energy-Manager/](https://ffunes.github.io/Marstek-Venus-Energy-Manager/)**
+**[https://ffunes.github.io/Omnibattery/](https://ffunes.github.io/Omnibattery/)**
 
 ## Key Features
 
 - **Mix and match different battery brands**: Marstek, Zendure and more to come!
 - **Zero Export/Import PD Controller**: Keeps grid exchange near zero using a Proportional-Derivative algorithm.
+- **Integrated dashboard**: All the controls and adjustments from a single place. Graphs and power flow diagram included!
 - **One-Click PD Profiles + Quality Sensor**: Pick a tuning profile (Very smooth → Very aggressive) instead of tuning gains by hand; a control-quality sensor reports whether the result is stable, oscillating or sluggish.
 - **Multi-Battery Support**: Manage up to 6 batteries with intelligent load sharing and SOC-based priority.
 - **Predictive Grid Charging**: Automatically charges from the grid when solar forecast + battery won't cover tomorrow's consumption. Supports fixed time slots, dynamic pricing, and real-time pricing modes. An optional grid-charge margin (%) tops up the grid amount to hedge optimistic solar forecasts.
