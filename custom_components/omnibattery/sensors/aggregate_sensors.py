@@ -1,0 +1,648 @@
+"""Aggregate sensors for the Omnibattery integration."""
+from __future__ import annotations
+
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+import logging
+
+_LOGGER = logging.getLogger(__name__)
+
+from ..const import DOMAIN, ALARM_BIT_DESCRIPTIONS, FAULT_BIT_DESCRIPTIONS, DEBUG_POLL_SENSOR_VALUES, CONF_SOLAR_PRODUCTION_SENSOR, CONF_METER_INVERTED, pd_profile_from_params
+from ..infra.coordinator import MarstekVenusDataUpdateCoordinator
+from ..infra.entity_naming import system_entity_id
+
+
+# Define aggregate sensor definitions
+AGGREGATE_SENSOR_DEFINITIONS = [
+    {
+        "key": "system_soc",
+        "name": "System SOC",
+        "unit": "%",
+        "device_class": SensorDeviceClass.BATTERY,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "icon": "mdi:battery",
+        "precision": 0,
+    },
+    {
+        "key": "system_charge_power",
+        "name": "System Charge Power",
+        "unit": "W",
+        "device_class": SensorDeviceClass.POWER,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "icon": "mdi:battery-charging",
+        "precision": 0,
+    },
+    {
+        "key": "system_discharge_power",
+        "name": "System Discharge Power",
+        "unit": "W",
+        "device_class": SensorDeviceClass.POWER,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "icon": "mdi:battery-minus",
+        "precision": 0,
+    },
+    {
+        "key": "system_total_energy",
+        "name": "System Total Energy",
+        "unit": "kWh",
+        "device_class": SensorDeviceClass.ENERGY,
+        "state_class": "total",
+        "icon": "mdi:battery-heart",
+        "precision": 2,
+    },
+    {
+        "key": "system_stored_energy",
+        "name": "System Stored Energy",
+        "unit": "kWh",
+        "device_class": SensorDeviceClass.ENERGY,
+        "state_class": "total",
+        "icon": "mdi:battery-high",
+        "precision": 3,
+    },
+    {
+        "key": "system_daily_charging_energy",
+        "name": "System Daily Charging Energy",
+        "unit": "kWh",
+        "device_class": SensorDeviceClass.ENERGY,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "icon": "mdi:battery-plus",
+        "precision": 2,
+    },
+    {
+        "key": "system_daily_discharging_energy",
+        "name": "System Daily Discharging Energy",
+        "unit": "kWh",
+        "device_class": SensorDeviceClass.ENERGY,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "icon": "mdi:battery-minus",
+        "precision": 2,
+    },
+    {
+        "key": "home_consumption",
+        "name": "Home Consumption",
+        "unit": "W",
+        "device_class": SensorDeviceClass.POWER,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "icon": "mdi:home-lightning-bolt",
+        "precision": 0,
+    },
+]
+
+
+# Signed net cell power across all batteries (+charge / -discharge), added only
+# for systems with DC-coupled PV (vA/vD). Mirrors the dashboard's per-battery
+# cell-power formula so the SOC card's Charge/Discharge blocks can link to a value
+# that matches what they display, instead of the AC-only system_charge_power (#347).
+SYSTEM_BATTERY_CELL_POWER_DEFINITION = {
+    "key": "system_battery_cell_power",
+    "name": "System Battery Cell Power",
+    "unit": "W",
+    "device_class": SensorDeviceClass.POWER,
+    "state_class": SensorStateClass.MEASUREMENT,
+    "icon": "mdi:home-battery",
+    "precision": 0,
+}
+
+
+class DailyGridAtMinSocSensor(SensorEntity):
+    """Tracks daily grid energy imported when all batteries are at min SOC during a discharge window.
+
+    This energy represents household demand that the battery could not cover.
+    It is accumulated in real-time by the ChargeDischargeController and resets at midnight.
+    """
+
+    def __init__(self, controller) -> None:
+        """Initialize the sensor."""
+        self._controller = controller
+
+        self._attr_has_entity_name = True
+        self._attr_unique_id = "marstek_venus_system_daily_grid_at_min_soc_energy"
+        self.entity_id = system_entity_id("sensor", "daily_grid_at_min_soc_energy")
+        self._attr_translation_key = "system_daily_grid_at_min_soc_energy"
+        self._attr_native_unit_of_measurement = "kWh"
+        self._attr_device_class = SensorDeviceClass.ENERGY
+        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        self._attr_suggested_display_precision = 2
+        self._attr_icon = "mdi:transmission-tower-import"
+        self._attr_should_poll = False
+
+    async def async_added_to_hass(self) -> None:
+        """Register with controller once entity is added to HA."""
+        self._controller._grid_at_min_soc_sensor = self
+
+    @property
+    def native_value(self) -> float:
+        """Return accumulated daily grid import at min SOC."""
+        return round(self._controller._daily_grid_at_min_soc_kwh, 2)
+
+    @property
+    def device_info(self):
+        """Return device information for the system."""
+        return {
+            "identifiers": {(DOMAIN, "marstek_venus_system")},
+            "name": "Omnibattery System",
+            "manufacturer": "Omnibattery",
+            "model": "Multi-Battery System",
+        }
+
+
+class PdControlQualitySensor(SensorEntity):
+    """Diagnostic sensor exposing PD control-loop quality so users can see the
+    effect of the tuning profile / sliders.
+
+    The state is a verdict (stable / oscillating / sluggish / battery_limited /
+    collecting_data) rather than a raw number, so it tells the user what to do
+    instead of showing a watt value that reads like a power flow. The underlying
+    grid-error RMS (W) and oscillation rate live in the attributes.
+    """
+
+    # Thresholds for the verdict. Oscillation is the dominant symptom of
+    # over-aggressive tuning (hunting); a high RMS with low oscillation is the
+    # signature of sluggish tuning that never catches up.
+    _OSC_HIGH_PER_MIN = 4.0
+    _RMS_HIGH_W = 150.0
+    _OSC_LOW_PER_MIN = 1.0
+
+    _STATES = ["disabled", "stable", "oscillating", "sluggish", "battery_limited", "collecting_data"]
+
+    def __init__(self, controller) -> None:
+        """Initialize the sensor."""
+        self._controller = controller
+
+        self._attr_has_entity_name = True
+        self._attr_unique_id = "marstek_venus_system_pd_control_quality"
+        self.entity_id = system_entity_id("sensor", "pd_control_quality")
+        self._attr_translation_key = "system_pd_control_quality"
+        self._attr_device_class = SensorDeviceClass.ENUM
+        self._attr_options = list(self._STATES)
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_icon = "mdi:tune-vertical"
+        self._attr_should_poll = True  # metrics live on the controller; poll to refresh
+
+    @property
+    def native_value(self):
+        """Return the tuning verdict."""
+        c = self._controller
+        if getattr(c, "no_pd_mode_enabled", False):
+            return "disabled"  # No-PD direct-tracking mode: PD loop not running
+        if getattr(c, "_pd_limited", False):
+            return "battery_limited"
+        rms = c.pd_quality_rms_error
+        if rms is None:
+            return "collecting_data"
+        return self._verdict(rms, c.pd_quality_oscillation_per_min)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Expose the raw RMS error, oscillation rate, and active params/profile."""
+        c = self._controller
+        rms = c.pd_quality_rms_error
+        return {
+            "rms_error_w": round(rms) if rms is not None else None,
+            "oscillation_per_min": round(c.pd_quality_oscillation_per_min, 2),
+            "kp": c.kp,
+            "kd": c.kd,
+            "deadband_w": c.deadband,
+            "max_power_change_w": c.max_power_change_per_cycle,
+            "active_profile": pd_profile_from_params(c.config_entry.data),
+        }
+
+    @classmethod
+    def _verdict(cls, rms: float, osc: float) -> str:
+        """Derive the tuning verdict from the live metrics."""
+        if osc >= cls._OSC_HIGH_PER_MIN:
+            return "oscillating"  # hunting: smoother profile / higher deadband
+        if rms > cls._RMS_HIGH_W and osc < cls._OSC_LOW_PER_MIN:
+            return "sluggish"     # too slow: more aggressive profile
+        return "stable"
+
+    @property
+    def device_info(self):
+        """Return device information for the system."""
+        return {
+            "identifiers": {(DOMAIN, "marstek_venus_system")},
+            "name": "Omnibattery System",
+            "manufacturer": "Omnibattery",
+            "model": "Multi-Battery System",
+        }
+
+
+class MarstekVenusAggregateSensor(SensorEntity):
+    """Representation of an aggregate sensor combining all batteries."""
+
+    def __init__(
+        self, coordinators: list[MarstekVenusDataUpdateCoordinator], definition: dict, entry: ConfigEntry, hass: HomeAssistant
+    ) -> None:
+        """Initialize the aggregate sensor."""
+        self.coordinators = coordinators
+        self.definition = definition
+        self.entry = entry
+        self.hass = hass
+
+        # Set entity attributes
+        self._attr_has_entity_name = True
+        self._attr_translation_key = definition["key"]
+        self._attr_unique_id = f"marstek_venus_system_{definition['key']}"
+        self.entity_id = system_entity_id("sensor", definition["key"])
+        self._attr_device_class = definition.get("device_class")
+        self._attr_state_class = definition.get("state_class")
+        self._attr_native_unit_of_measurement = definition.get("unit")
+        self._attr_icon = definition.get("icon")
+        self._attr_should_poll = False
+
+        # Register as listener to all coordinators
+        for coordinator in coordinators:
+            coordinator.async_add_listener(self._handle_coordinator_update)
+    
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from any coordinator."""
+        # The listener is registered in __init__, so it also fires for a
+        # disabled entity (never added to hass). Writing state then raises
+        # RuntimeError and breaks the coordinator's listener-notify loop.
+        if self.hass is None:
+            return
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self):
+        """Return the state of the aggregate sensor."""
+        key = self.definition["key"]
+        
+        if key == "system_soc":
+            return self._calculate_system_soc()
+        elif key == "system_charge_power":
+            return self._calculate_total_charge_power()
+        elif key == "system_discharge_power":
+            return self._calculate_total_discharge_power()
+        elif key == "system_total_energy":
+            return self._calculate_total_energy()
+        elif key == "system_stored_energy":
+            return self._calculate_total_stored_energy()
+        elif key == "system_daily_charging_energy":
+            return self._calculate_daily_charging_energy()
+        elif key == "system_daily_discharging_energy":
+            return self._calculate_daily_discharging_energy()
+        elif key == "home_consumption":
+            return self._calculate_home_consumption()
+        elif key == "system_battery_cell_power":
+            return self._calculate_battery_cell_power()
+
+        return None
+
+    def _calculate_battery_cell_power(self) -> float | None:
+        """Signed net cell power across all batteries (+charge / -discharge).
+
+        Mirrors the dashboard's per-battery cell-power formula exactly, so the SOC
+        card's Charge/Discharge blocks link to a value that matches what they show:
+        ``-ac_power - ac_offgrid_power + sum(MPPT)``. ac_power is preferred over the
+        unreliable battery_power register; drivers without ac_power (no MPPT, so this
+        sensor isn't created for them) fall back to their signed battery_power.
+        """
+        total = 0.0
+        has_data = False
+        for coordinator in self.coordinators:
+            # Disconnected units keep stale ac_power/MPPT (merged dict, never expired).
+            if not (coordinator.is_available and coordinator.data):
+                continue
+            data = coordinator.data
+            ac = data.get("ac_power")
+            if ac is not None:
+                mppt = 0.0
+                for mk in ("mppt1_power", "mppt2_power", "mppt3_power", "mppt4_power"):
+                    value = data.get(mk)
+                    if value is not None:
+                        mppt += value
+                aco = data.get("ac_offgrid_power") or 0.0
+                total += -ac - aco + mppt
+                has_data = True
+            else:
+                battery_power = data.get("battery_power")
+                if battery_power is not None:
+                    total += battery_power
+                    has_data = True
+        if not has_data:
+            return None
+        return round(total, self.definition.get("precision", 0))
+
+    def _calculate_system_soc(self) -> float | None:
+        """Calculate capacity-weighted SOC across all batteries."""
+        total_capacity = 0
+        total_stored = 0
+
+        for coordinator in self.coordinators:
+            if coordinator.data:
+                soc = coordinator.data.get("battery_soc")
+                capacity = coordinator.data.get("battery_total_energy")
+                if soc is not None and capacity is not None and capacity > 0:
+                    total_capacity += capacity
+                    total_stored += (soc / 100.0) * capacity
+
+        if total_capacity <= 0:
+            return None
+
+        weighted_soc = (total_stored / total_capacity) * 100
+        has_v3 = any(
+            getattr(c, "battery_version", "v2") in ("v3", "vA", "vD")
+            for c in self.coordinators
+        )
+        precision = 1 if has_v3 else self.definition.get("precision", 0)
+        return round(weighted_soc, precision)
+
+    @staticmethod
+    def _ac_convention_power(data: dict) -> float | None:
+        """Return battery power in ac_power convention (charge negative, discharge positive).
+
+        Marstek exposes ``ac_power`` directly. Drivers that don't (e.g. Zendure)
+        only synthesise ``battery_power`` (+charge / −discharge, opposite sign),
+        so fall back to its negation to keep them in the system charge/discharge totals.
+        """
+        power = data.get("ac_power")
+        if power is not None:
+            return power
+        battery_power = data.get("battery_power")
+        if battery_power is not None:
+            return -battery_power
+        return None
+
+    def _calculate_total_charge_power(self) -> float | None:
+        """Calculate total charge power across all batteries.
+
+        Charge power is negative in ac_power, so we sum only negative values and return absolute value.
+        """
+        total_power = 0
+        has_data = False
+
+        for coordinator in self.coordinators:
+            # Disconnected units keep a stale ac_power (merged dict, never expired).
+            if coordinator.is_available and coordinator.data:
+                power = self._ac_convention_power(coordinator.data)
+                if power is not None:
+                    # Only count negative values (charging)
+                    if power < 0:
+                        total_power += abs(power)
+                        has_data = True
+
+        if not has_data:
+            return 0  # Return 0 instead of None when not charging
+
+        return round(total_power, self.definition.get("precision", 0))
+
+    def _calculate_total_discharge_power(self) -> float | None:
+        """Calculate total discharge power across all batteries.
+
+        Discharge power is positive in ac_power, so we sum only positive values.
+        """
+        total_power = 0
+        has_data = False
+        ac_powers = []  # For debug logging
+
+        for coordinator in self.coordinators:
+            # Disconnected units keep a stale ac_power (merged dict, never expired).
+            if coordinator.is_available and coordinator.data:
+                power = self._ac_convention_power(coordinator.data)
+                if power is not None:
+                    ac_powers.append(f"{coordinator.name}={power}W")
+                    # Only count positive values (discharging)
+                    if power > 0:
+                        total_power += power
+                        has_data = True
+
+        # Debug logging to see what's being summed
+        if DEBUG_POLL_SENSOR_VALUES and ac_powers:
+            _LOGGER.debug(
+                "System discharge power calculation: %s -> total=%sW",
+                ", ".join(ac_powers),
+                total_power,
+            )
+
+        if not has_data:
+            return 0  # Return 0 instead of None when not discharging
+
+        return round(total_power, self.definition.get("precision", 0))
+
+    def _calculate_total_energy(self) -> float | None:
+        """Calculate total energy capacity across all batteries (sum of battery_total_energy sensors)."""
+        total_energy = 0
+        has_data = False
+        
+        for coordinator in self.coordinators:
+            if coordinator.data:
+                # Get the battery_total_energy sensor value
+                energy = coordinator.data.get("battery_total_energy")
+                if energy is not None:
+                    total_energy += energy
+                    has_data = True
+        
+        if not has_data:
+            return None
+        
+        return round(total_energy, self.definition.get("precision", 2))
+
+    def _calculate_total_stored_energy(self) -> float | None:
+        """Calculate total stored energy across all batteries (calculated from SOC and total_energy)."""
+        total_stored = 0
+        has_data = False
+        
+        for coordinator in self.coordinators:
+            if coordinator.data:
+                soc = coordinator.data.get("battery_soc")
+                total_energy = coordinator.data.get("battery_total_energy")
+                
+                if soc is not None and total_energy is not None:
+                    # Stored energy = (SOC / 100) * Total Energy
+                    stored_energy = (soc / 100.0) * total_energy
+                    total_stored += stored_energy
+                    has_data = True
+        
+        if not has_data:
+            return None
+        
+        return round(total_stored, self.definition.get("precision", 3))
+    
+    def _calculate_daily_charging_energy(self) -> float | None:
+        """Calculate total daily charging energy across all batteries."""
+        total_energy = 0
+        has_data = False
+
+        for coordinator in self.coordinators:
+            if coordinator.data:
+                energy = coordinator.data.get("total_daily_charging_energy")
+                if energy is not None:
+                    total_energy += energy
+                    has_data = True
+
+        if not has_data:
+            return None
+
+        return round(total_energy, self.definition.get("precision", 2))
+
+    def _calculate_daily_discharging_energy(self) -> float | None:
+        """Calculate total daily discharging energy across all batteries."""
+        total_energy = 0
+        has_data = False
+
+        for coordinator in self.coordinators:
+            if coordinator.data:
+                energy = coordinator.data.get("total_daily_discharging_energy")
+                if energy is not None:
+                    total_energy += energy
+                    has_data = True
+
+        if not has_data:
+            return None
+
+        return round(total_energy, self.definition.get("precision", 2))
+
+    def _read_power_w(self, entity_id: str) -> float | None:
+        """Read a power entity and return its value in Watts, or None if unusable."""
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in ("unknown", "unavailable"):
+            return None
+        try:
+            value = float(state.state)
+        except (ValueError, TypeError):
+            return None
+        unit = state.attributes.get("unit_of_measurement", "W")
+        return value * 1000.0 if unit == "kW" else value
+
+    def _calculate_home_consumption(self) -> float | None:
+        """Calculate instantaneous household consumption (W).
+
+        Derived from the energy balance at the AC bus:
+            home = grid + sum(ac_power) + external_solar
+        DC-coupled PV (MPPT) does not appear here: it is already netted into each
+        battery's ac_power at the inverter. Mirrors the panel's flow derivation.
+        """
+        data = self.entry.data
+
+        grid_eid = data.get("consumption_sensor")
+        grid_w = self._read_power_w(grid_eid) if grid_eid else None
+        if grid_w is None:
+            return None
+        if data.get(CONF_METER_INVERTED, False):
+            grid_w = -grid_w
+        total = grid_w
+        for coordinator in self.coordinators:
+            # Skip a disconnected battery: its ac_power stays frozen at the last
+            # poll (coordinator.data is merged, never expired), so a unit that
+            # dropped mid-discharge would keep adding a phantom contribution while
+            # the grid meter already shows its load — double-counting it here.
+            if coordinator.is_available and coordinator.data:
+                # Registerless drivers (e.g. Zendure) expose no ac_power; fall
+                # back to −battery_power so their discharge is not dropped from
+                # the home total (mirrors the charge/discharge aggregates).
+                ac = self._ac_convention_power(coordinator.data)
+                if ac is not None:
+                    total += ac
+
+        solar_eid = data.get(CONF_SOLAR_PRODUCTION_SENSOR)
+        if solar_eid:
+            solar_w = self._read_power_w(solar_eid)
+            if solar_w is not None:
+                total += solar_w
+
+        return round(max(0.0, total))
+
+    @property
+    def device_info(self):
+        """Return device information for the system."""
+        return {
+            "identifiers": {(DOMAIN, "marstek_venus_system")},
+            "name": "Omnibattery System",
+            "manufacturer": "Omnibattery",
+            "model": "Multi-Battery System",
+        }
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        # Available if at least one coordinator has data
+        return any(coordinator.data is not None for coordinator in self.coordinators)
+
+
+class SystemAlarmSensor(SensorEntity):
+    """System-level alarm sensor that aggregates fault/alarm status across all batteries.
+
+    State: "OK" when no active alarms or faults.
+           "Warning" when one or more alarm bits are set but no fault bits.
+           "Fault" when one or more fault bits are set on any battery.
+
+    The extra_state_attributes dict exposes per-battery active alarm/fault labels so
+    the user can see which battery is affected and what the condition is.
+    """
+
+    _attr_has_entity_name = True
+    _attr_unique_id = "marstek_venus_system_alarm_status"
+    _attr_translation_key = "system_alarm_status"
+    _attr_icon = "mdi:bell-alert"
+    _attr_should_poll = False
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinators: list[MarstekVenusDataUpdateCoordinator]) -> None:
+        """Initialize the system alarm sensor."""
+        self.coordinators = coordinators
+        self.entity_id = system_entity_id("sensor", "alarm_status")
+
+        for coordinator in coordinators:
+            coordinator.async_add_listener(self._handle_coordinator_update)
+
+    def _handle_coordinator_update(self) -> None:
+        # See MarstekVenusAggregateSensor: guard the disabled-entity case where
+        # hass is None to avoid breaking the coordinator listener-notify loop.
+        if self.hass is None:
+            return
+        self.async_write_ha_state()
+
+    @staticmethod
+    def _active_labels(value: int, descriptions: dict) -> list[str]:
+        return [descriptions[b] for b in range(32) if (value & (1 << b)) and b in descriptions]
+
+    @property
+    def native_value(self) -> str:
+        """Return overall alarm state across all batteries."""
+        any_fault = False
+        any_alarm = False
+        for coordinator in self.coordinators:
+            if not coordinator.data:
+                continue
+            if coordinator.data.get("fault_status") or 0:
+                any_fault = True
+            if coordinator.data.get("alarm_status") or 0:
+                any_alarm = True
+        if any_fault:
+            return "Fault"
+        if any_alarm:
+            return "Warning"
+        return "OK"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return per-battery active alarm and fault descriptions."""
+        attrs: dict = {}
+        for coordinator in self.coordinators:
+            if not coordinator.data:
+                continue
+            fault_val: int = coordinator.data.get("fault_status") or 0
+            alarm_val: int = coordinator.data.get("alarm_status") or 0
+            active: list[str] = []
+            if fault_val:
+                active += [f"[Fault] {label}" for label in self._active_labels(fault_val, FAULT_BIT_DESCRIPTIONS)]
+            if alarm_val:
+                active += [f"[Alarm] {label}" for label in self._active_labels(alarm_val, ALARM_BIT_DESCRIPTIONS)]
+            if active:
+                attrs[coordinator.name] = active
+        return attrs
+
+    @property
+    def device_info(self):
+        """Attach to the system device."""
+        return {
+            "identifiers": {(DOMAIN, "marstek_venus_system")},
+            "name": "Omnibattery System",
+            "manufacturer": "Omnibattery",
+            "model": "Multi-Battery System",
+        }

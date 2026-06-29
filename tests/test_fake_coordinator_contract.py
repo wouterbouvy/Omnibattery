@@ -13,7 +13,7 @@ coordinator needs hass/pymodbus and is out of scope for the Windows unit suite.
 """
 from __future__ import annotations
 
-from custom_components.marstek_venus_energy_manager.coordinator import (
+from custom_components.omnibattery.infra.coordinator import (
     MarstekVenusDataUpdateCoordinator,
 )
 from tests.conftest import FakeCoordinator
@@ -22,7 +22,10 @@ from tests.conftest import FakeCoordinator
 # Subset of FakeCoordinator.__slots__ that the real coordinator exposes at class
 # level (properties + methods). The bug that motivated this guard was exactly
 # `is_available` vs `available`.
-CLASS_LEVEL_NAMES = ("is_available", "device_key", "write_power_atomic")
+CLASS_LEVEL_NAMES = (
+    "is_available", "device_key", "apply_power", "capabilities", "set_charge_cutoff",
+    "write_control",
+)
 
 
 def test_class_level_names_exist_on_real_coordinator():

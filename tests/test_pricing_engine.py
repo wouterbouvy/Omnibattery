@@ -16,15 +16,15 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
-from custom_components.marstek_venus_energy_manager.const import (
+from custom_components.omnibattery.const import (
     PRICE_INTEGRATION_CKW,
     PRICE_INTEGRATION_NORDPOOL,
     PREDICTIVE_MODE_DYNAMIC_PRICING,
     PREDICTIVE_MODE_REALTIME_PRICE,
     PREDICTIVE_MODE_TIME_SLOT,
 )
-from custom_components.marstek_venus_energy_manager.pricing import PriceSlot
-from custom_components.marstek_venus_energy_manager.pricing.engine import PricingManager
+from custom_components.omnibattery.pricing import PriceSlot
+from custom_components.omnibattery.pricing.engine import PricingManager
 
 
 # ----------------------------------------------------------------------
@@ -57,6 +57,7 @@ def _controller(**overrides):
         price_sensor=None,
         price_integration_type=PRICE_INTEGRATION_NORDPOOL,
         max_price_threshold=None,
+        discharge_price_threshold=None,
         average_price_sensor=None,
     )
     base.update(overrides)
@@ -119,6 +120,75 @@ def test_evening_reeval_false_when_already_done_today():
 
 
 # ----------------------------------------------------------------------
+# _is_dp_soc_drop_reeval (SOC-drop upward re-eval, #411)
+# ----------------------------------------------------------------------
+
+def _coord(soc):
+    """Coordinator stand-in exposing only ``data['battery_soc']``."""
+    return SimpleNamespace(data={"battery_soc": soc})
+
+
+def test_soc_drop_reeval_false_when_no_reference():
+    # Before the 00:05 eval sets a reference, the trigger never fires.
+    ctrl = _controller(_dp_last_eval_soc=None, coordinators=[_coord(20)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is False
+
+
+def test_soc_drop_reeval_true_on_large_drop():
+    # Reporter's case: eval'd at 60%, woke to 24% → 36% drop ≥ 30% threshold.
+    ctrl = _controller(_dp_last_eval_soc=60.0, coordinators=[_coord(24)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is True
+
+
+def test_soc_drop_reeval_false_below_threshold():
+    # 60 → 40 is a 20% drop, under the 30% threshold.
+    ctrl = _controller(_dp_last_eval_soc=60.0, coordinators=[_coord(40)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is False
+
+
+def test_soc_drop_reeval_false_on_soc_rise():
+    # Directional: a rise (charged up) never triggers an upward re-plan.
+    ctrl = _controller(_dp_last_eval_soc=30.0, coordinators=[_coord(70)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is False
+
+
+def test_soc_drop_reeval_false_when_no_coordinator_data():
+    ctrl = _controller(_dp_last_eval_soc=60.0, coordinators=[SimpleNamespace(data=None)])
+    assert _mgr(ctrl)._is_dp_soc_drop_reeval() is False
+
+
+# ----------------------------------------------------------------------
+# _project_remaining_consumption (evening recharge deficit, #409)
+# ----------------------------------------------------------------------
+
+def test_remaining_consumption_projects_todays_rate():
+    # 18:00, 12 kWh used so far → 0.667 kWh/h × 6h left = 4.0 kWh.
+    remaining, rate = PricingManager._project_remaining_consumption(18.0, 12.0, 20.0)
+    assert round(rate, 3) == 0.667
+    assert round(remaining, 2) == 4.0
+
+
+def test_remaining_consumption_heavy_day_charges_more_than_light():
+    # Same hour: a heavy day so far projects a larger remaining need than a
+    # light day — the property "avg − consumed" got backwards.
+    heavy, _ = PricingManager._project_remaining_consumption(18.0, 18.0, 17.0)
+    light, _ = PricingManager._project_remaining_consumption(18.0, 6.0, 17.0)
+    assert heavy > light
+
+
+def test_remaining_consumption_cold_accumulator_uses_avg_rate():
+    # consumed_today = 0 (e.g. just after restart) → fall back to avg/24 rate.
+    remaining, rate = PricingManager._project_remaining_consumption(18.0, 0.0, 24.0)
+    assert rate == 1.0                  # 24 kWh / 24 h
+    assert round(remaining, 2) == 6.0   # 1.0 × 6 h
+
+
+def test_remaining_consumption_zero_at_midnight():
+    remaining, _ = PricingManager._project_remaining_consumption(24.0, 20.0, 20.0)
+    assert remaining == 0.0
+
+
+# ----------------------------------------------------------------------
 # apply_price_discharge_block — early-return branches (no hass touched)
 # ----------------------------------------------------------------------
 
@@ -157,3 +227,51 @@ def test_discharge_block_removed_when_rt_control_disabled():
     )
     _mgr(ctrl).apply_price_discharge_block()
     assert ctrl._removed == ["price_discharge"]
+
+
+# ----------------------------------------------------------------------
+# apply_price_discharge_block — separate discharge floor / idle band (#408)
+# ----------------------------------------------------------------------
+
+def _mgr_with_price(ctrl, price):
+    """PricingManager whose price sensor reads ``price`` (Nordpool float path)."""
+    state = SimpleNamespace(state=str(price), attributes={})
+    hass = SimpleNamespace(states=SimpleNamespace(get=lambda _eid: state))
+    return PricingManager(hass, ctrl)
+
+
+def _dp_band_controller(**overrides):
+    base = dict(
+        predictive_charging_mode=PREDICTIVE_MODE_DYNAMIC_PRICING,
+        dp_price_discharge_control=True,
+        price_sensor="sensor.price",
+        max_price_threshold=0.20,   # charge ceiling
+        discharge_price_threshold=0.30,  # discharge floor
+    )
+    base.update(overrides)
+    return _controller(**base)
+
+
+def test_dp_discharge_floor_blocks_inside_idle_band():
+    # price 0.25 sits in the idle band (ceiling 0.20 < 0.25 < floor 0.30):
+    # discharge stays blocked. Single-threshold behavior would unblock at 0.21.
+    ctrl = _dp_band_controller()
+    _mgr_with_price(ctrl, 0.25).apply_price_discharge_block()
+    assert ctrl._set and ctrl._set[0][0] == "price_discharge"
+    assert ctrl._price_based_discharge_blocked is True
+
+
+def test_dp_discharge_allowed_above_floor():
+    ctrl = _dp_band_controller()
+    _mgr_with_price(ctrl, 0.35).apply_price_discharge_block()
+    assert ctrl._removed == ["price_discharge"]
+    assert ctrl._price_based_discharge_blocked is False
+
+
+def test_dp_discharge_floor_unset_falls_back_to_charge_ceiling():
+    # Back-compat: no floor → reuse max_price_threshold (0.20) for both, so
+    # price 0.25 > 0.20 unblocks discharge exactly as before #408.
+    ctrl = _dp_band_controller(discharge_price_threshold=None)
+    _mgr_with_price(ctrl, 0.25).apply_price_discharge_block()
+    assert ctrl._removed == ["price_discharge"]
+    assert ctrl._price_based_discharge_blocked is False
