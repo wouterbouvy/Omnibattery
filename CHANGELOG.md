@@ -14,6 +14,9 @@
 - **Charge Delay Balance Deadband slider** (kWh, default 0.5): runtime tolerance on the charge-delay energy balance — the delay only unlocks once the solar+stored shortfall exceeds it. [`number.py`](custom_components/omnibattery/number.py).
 - **Synthetic energy totals survive a delete + re-add (Zendure)**: lifetime charge/discharge kWh are now backed up keyed by device serial in a delete-proof Store, so re-adding a battery reclaims its totals instead of restarting at 0. [`synthetic_energy_backup.py`](custom_components/omnibattery/synthetic_energy_backup.py).
 
+### Changed
+- **PV-surplus charge delay scores the whole charge window, not just the start hour** (#18): the cheapest-price release (#12) picked the single cheapest *starting* slot, but the charge runs across several slots, so a cheap start followed by pricey hours could sacrifice more export than a slightly dearer start inside a sustained trough. Each candidate start is now scored by the duration-weighted average price over `[start, start + charge_time_h]`, landing the whole charge in the cheapest sustained block; a window running past the available price data is skipped so an incomplete tail can't score as artificially cheap. The grid-deficit path (no defined charge length) keeps the legacy single-slot behaviour, and SOC safety is untouched — release only ever moves earlier. Thanks to @syphernl for the contribution. [`control/charge_delay.py`](custom_components/omnibattery/control/charge_delay.py), [`pricing/engine.py`](custom_components/omnibattery/pricing/engine.py).
+
 ## [1.0.0b1] - 2026-06-29
 
 > ### ⚠️ Major change — new repository, integration renamed to “Omnibattery”
