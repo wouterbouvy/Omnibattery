@@ -381,10 +381,10 @@ class ConsumptionTracker:
         ctrl = self._controller
         if not ctrl.consumption_sensor:
             return None
-        grid_kw = self._read_power_kw(ctrl.consumption_sensor)
-        if grid_kw is None:
+        grid_w = ctrl._apply_meter_transform(self._hass.states.get(ctrl.consumption_sensor))
+        if grid_w is None:
             return None
-        total_kw = grid_kw
+        total_kw = grid_w / 1000.0
         for coordinator in ctrl.coordinators:
             # Skip a disconnected battery: coordinator.data keeps its last
             # ac_power (the dict is merged, never expired), so a unit that dies
