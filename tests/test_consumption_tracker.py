@@ -190,13 +190,31 @@ def _battunit(ac_w, available=True):
     return FakeCoordinator(data={"ac_power": ac_w}, is_available=available)
 
 
-def _make_home_tracker(states, coordinators, grid_sensor="sensor.grid", solar_sensor=None):
+def _apply_meter_transform(meter_inverted, state):
+    """Mirrors ChargeDischargeController._apply_meter_transform (__init__.py)."""
+    if state is None or state.state in ("unknown", "unavailable"):
+        return None
+    try:
+        value = float(state.state)
+    except (ValueError, TypeError):
+        return None
+    unit = state.attributes.get("unit_of_measurement", "W")
+    if unit == "kW":
+        value *= 1000.0
+    if meter_inverted:
+        value = -value
+    return value
+
+
+def _make_home_tracker(states, coordinators, grid_sensor="sensor.grid", solar_sensor=None, meter_inverted=False):
     tracker = ConsumptionTracker.__new__(ConsumptionTracker)
     tracker._hass = SimpleNamespace(states=_FakeStates(states))
     tracker._controller = SimpleNamespace(
         consumption_sensor=grid_sensor,
         solar_production_sensor=solar_sensor,
         coordinators=coordinators,
+        meter_inverted=meter_inverted,
+        _apply_meter_transform=lambda state: _apply_meter_transform(meter_inverted, state),
     )
     return tracker
 
@@ -218,3 +236,19 @@ def test_derive_home_skips_disconnected_stale_discharge():
         {"sensor.grid": _w(2800)}, [_battunit(2500, available=False)]
     )
     assert tracker._derive_home_power_kw() == pytest.approx(2.8)
+
+
+def test_derive_home_applies_inverted_meter_during_export():
+    # Inverted meter: raw +1000 W means 1 kW EXPORT (not import). No battery
+    # activity, house load is 0.5 kW covered entirely by solar surplus. The raw
+    # (uncorrected) reading would wrongly add the export as if it were import,
+    # reporting 1.5 kW instead of the true 0.5 kW.
+    tracker = _make_home_tracker(
+        {"sensor.grid": _w(1000)}, [], solar_sensor=None, meter_inverted=True,
+    )
+    assert tracker._derive_home_power_kw() == pytest.approx(0.0)  # -1.0 kW, clamped
+
+    tracker = _make_home_tracker(
+        {"sensor.grid": _w(-500)}, [], meter_inverted=True,
+    )
+    assert tracker._derive_home_power_kw() == pytest.approx(0.5)
