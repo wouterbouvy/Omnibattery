@@ -126,6 +126,7 @@ from .const import (
     FAST_ACTUATOR_MAX_LATENCY_S,
     DISCHARGE_ENGAGE_GRACE_S,
     IDLE_RUNAWAY_POWER_W,
+    IDLE_RUNAWAY_GRACE_S,
     CONF_ACTIVE_BALANCE_MODE_ENABLED,
     CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
     DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED,
@@ -470,6 +471,11 @@ class ChargeDischargeController:
         # while it is still engaging. See _set_battery_power.
         self._last_commanded_net_sign: dict[MarstekVenusDataUpdateCoordinator, int] = {}
         self._discharge_engage_started: dict[MarstekVenusDataUpdateCoordinator, datetime] = {}
+        # Idle ramp-down grace: the time the commanded direction flipped from a
+        # move into idle. The idle-runaway judgment is suppressed for
+        # IDLE_RUNAWAY_GRACE_S after the flip so a battery still ramping down
+        # (lagging battery_power telemetry) is not mistaken for a runaway.
+        self._idle_commanded_started: dict[MarstekVenusDataUpdateCoordinator, datetime] = {}
         # Idle-runaway episode guard: True while a battery commanded idle is still
         # running free (issue #434), so the wake/re-assert fires once per episode
         # instead of every control cycle (which floods the log). Cleared when the
@@ -3125,6 +3131,13 @@ class ChargeDischargeController:
         if net_sign == -1 and self._last_commanded_net_sign.get(coordinator) != -1:
             self._discharge_engage_started[coordinator] = dt_util.utcnow()
             self._non_responsive.clear(coordinator)
+        # Mirror stamp for the opposite transition: a flip from a move into idle
+        # starts the ramp-down grace for the idle-runaway judgment below. A
+        # battery idle from the start (no prior commanded move) gets no grace —
+        # there is no ramp-down to wait out, and a genuine runaway found at
+        # startup (the original #434 case) should trip immediately.
+        if net_sign == 0 and self._last_commanded_net_sign.get(coordinator, 0) != 0:
+            self._idle_commanded_started[coordinator] = dt_util.utcnow()
         self._last_commanded_net_sign[coordinator] = net_sign
         if net_sign != 0:
             # Commanding a move ends any idle-runaway episode.
@@ -3169,8 +3182,20 @@ class ChargeDischargeController:
                 # solar reads positive; forcing standby there would dump that PV to
                 # grid. Sign: + charge / - discharge.
                 batt_power = data.get("battery_power")
+                # Ramp-down grace: right after a discharge→idle flip the
+                # set-points already read standby while battery_power telemetry
+                # still shows the old discharge (actuator settle + poll grain).
+                # Judging runaway there re-asserts RS485 on every ordinary
+                # transition — suppress until the grace expires.
+                idle_cmd_at = self._idle_commanded_started.get(coordinator)
+                in_rampdown_grace = (
+                    idle_cmd_at is not None
+                    and (dt_util.utcnow() - idle_cmd_at).total_seconds()
+                    < IDLE_RUNAWAY_GRACE_S
+                )
                 if (
-                    batt_power is not None
+                    not in_rampdown_grace
+                    and batt_power is not None
                     and float(batt_power) <= -IDLE_RUNAWAY_POWER_W
                 ):
                     skip_write = False

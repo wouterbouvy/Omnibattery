@@ -14,11 +14,15 @@ coordinator, so no full ChargeDischargeController has to be constructed.
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
+from homeassistant.util import dt as dt_util
+
 from custom_components.omnibattery import ChargeDischargeController
 from custom_components.omnibattery.const import (
+    IDLE_RUNAWAY_GRACE_S,
     PD_READBACK_EVERY_N_WRITES,
 )
 from custom_components.omnibattery.drivers import SetpointResult
@@ -76,6 +80,7 @@ def _controller():
         _normal_balance_top_voltage_seen={},
         _last_commanded_net_sign={},
         _discharge_engage_started={},
+        _idle_commanded_started={},
         _non_responsive=SimpleNamespace(
             record_non_delivery=lambda *a, **k: False,
             clear=lambda c: None,
@@ -140,6 +145,52 @@ async def test_no_wake_when_idle_but_charging_from_solar():
     assert result is True
     wake.assert_not_awaited()
     coord.apply_power.assert_not_called()  # skipped, set-points already at standby
+
+
+async def test_no_wake_during_idle_rampdown_grace():
+    """A fresh discharge→idle flip where the battery is still ramping down is
+    NOT a runaway: set-points read standby before battery_power telemetry
+    catches up (actuator settle + poll grain). Waking there re-asserts RS485 on
+    every ordinary transition — must skip quietly instead."""
+    coord = _Coord({
+        "force_mode": 0,
+        "set_charge_power": 0,
+        "set_discharge_power": 0,
+        "battery_power": -300,  # still ramping down from the prior discharge
+    })
+    ctrl = _controller()
+    wake = AsyncMock(return_value=True)
+    ctrl._attempt_wake = wake
+    ctrl._last_commanded_net_sign[coord] = -1  # was discharging -> flips to idle
+
+    result = await ChargeDischargeController._set_battery_power(ctrl, coord, 0, 0)
+
+    assert result is True
+    wake.assert_not_awaited()
+    coord.apply_power.assert_not_called()
+
+
+async def test_wake_after_idle_rampdown_grace_expires():
+    """Still discharging past the ramp-down grace is a genuine runaway: the
+    suppression must not outlive IDLE_RUNAWAY_GRACE_S."""
+    coord = _Coord({
+        "force_mode": 0,
+        "set_charge_power": 0,
+        "set_discharge_power": 0,
+        "battery_power": -300,
+    })
+    ctrl = _controller()
+    wake = AsyncMock(return_value=True)
+    ctrl._attempt_wake = wake
+    ctrl._last_commanded_net_sign[coord] = 0  # already idle: no fresh flip
+    ctrl._idle_commanded_started[coord] = dt_util.utcnow() - timedelta(
+        seconds=IDLE_RUNAWAY_GRACE_S + 1
+    )
+
+    result = await ChargeDischargeController._set_battery_power(ctrl, coord, 0, 0)
+
+    assert result is True
+    wake.assert_awaited_once_with(coord)
 
 
 async def test_idle_runaway_wake_fires_once_per_episode():
