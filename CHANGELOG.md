@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.0b4] - 2026-07-02
+
+### Fixed
+- **Idle-runaway detector tripped on every discharge→idle transition**: right after commanding idle, the set-points already read standby while `battery_power` telemetry still shows the old discharge ramping down (actuator settle + poll grain), so ordinary transitions fired the #434 RS485 re-assert dozens of times a day. The runaway judgment now waits out a 15 s ramp-down grace after the flip to idle; a genuine runaway still trips, just that much later. [`__init__.py`](custom_components/omnibattery/__init__.py).
+
 ## [1.0.0b3] - 2026-07-02
 
 ### Fixed

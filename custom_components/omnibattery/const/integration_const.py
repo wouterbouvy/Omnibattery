@@ -253,6 +253,15 @@ DISCHARGE_ENGAGE_GRACE_S = 30
 # / metering noise so a resting battery doesn't trigger needless writes.
 IDLE_RUNAWAY_POWER_W = 100
 
+# A battery freshly commanded from a move into idle is still ramping down while
+# battery_power telemetry lags (actuator settle ~3-4 s + poll grain ~3 s), so
+# the set-points read standby a cycle or two before the delivered power reaches
+# 0. Judging idle-runaway inside that window fires the RS485 re-assert on every
+# ordinary discharge→idle transition (false positives, extra bus writes on a
+# fragile v3). Suppress the judgment for this long after the command flips to
+# idle; a genuine runaway is still caught, just this many seconds later.
+IDLE_RUNAWAY_GRACE_S = 15
+
 # Active balance mode.
 # Once the battery has reached the top, keep the cells in the balancing window
 # with gentle charge/discharge micro-cycles instead of only resting at 100% SOC.
