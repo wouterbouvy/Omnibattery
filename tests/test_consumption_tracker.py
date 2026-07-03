@@ -98,6 +98,66 @@ def test_avg_daily_consumption_single_day():
 
 
 # ----------------------------------------------------------------------
+# Operating-day gating of the consumption history (#46 follow-up):
+# non-operating days (weekends outside the charging window) must never enter
+# history with a synthetic default, or they drag the 7-day average down.
+# ----------------------------------------------------------------------
+
+def _make_history_tracker(history, charging_time_slots):
+    tracker = ConsumptionTracker.__new__(ConsumptionTracker)
+    tracker._controller = SimpleNamespace(
+        _daily_consumption_history=history,
+        charging_time_slots=charging_time_slots,
+        predictive_charging_enabled=True,
+    )
+    return tracker
+
+
+_MON_FRI = [{"days": ["mon", "tue", "wed", "thu", "fri"],
+             "start_time": "00:00", "end_time": "08:00"}]
+
+
+def test_is_operating_day_respects_slot_days():
+    tracker = _make_history_tracker([], _MON_FRI)
+    assert tracker._is_operating_day(date(2026, 6, 26))   # Friday
+    assert not tracker._is_operating_day(date(2026, 6, 27))  # Saturday
+    assert not tracker._is_operating_day(date(2026, 6, 28))  # Sunday
+    assert tracker._is_operating_day(date(2026, 6, 29))   # Monday
+
+
+def test_is_operating_day_true_when_no_slots():
+    # No charging window configured = battery runs 24/7 = every day counts.
+    tracker = _make_history_tracker([], [])
+    assert tracker._is_operating_day(date(2026, 6, 27))  # a Saturday
+
+
+def test_initialize_defaults_skips_non_operating_days():
+    tracker = _make_history_tracker([], _MON_FRI)
+    # Anchor "today" so the 7-day window is deterministic: 2026-07-03 is a Friday,
+    # so the past-7 window spans Sat 06-27 and Sun 06-28.
+    import custom_components.omnibattery.tracking.consumption_tracker as ct
+
+    class _FrozenDate(date):
+        @classmethod
+        def today(cls):
+            return date(2026, 7, 3)
+
+    orig = ct.date
+    ct.date = _FrozenDate
+    try:
+        tracker.initialize_history_with_defaults()
+    finally:
+        ct.date = orig
+
+    seeded = {d for d, _ in tracker._controller._daily_consumption_history}
+    assert date(2026, 6, 27) not in seeded  # Saturday
+    assert date(2026, 6, 28) not in seeded  # Sunday
+    assert date(2026, 7, 3) in seeded        # Friday
+    # Every seeded day is an operating weekday.
+    assert all(tracker._is_operating_day(d) for d in seeded)
+
+
+# ----------------------------------------------------------------------
 # Total solar power: external sensor + Venus DC-coupled PV (MPPT on vA/vD).
 # Pins the #354 fix — daily solar must count the battery's own MPPT panels,
 # not only the configured external sensor, and survive the external being gone.

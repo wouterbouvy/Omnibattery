@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **Consumption average skewed by non-operating days** (#46): days the battery doesn't run (e.g. weekends outside the charging window) were seeded with the 5.0 kWh default and averaged into the 7-day consumption forecast, dragging it down (e.g. 16.7 vs ~21 kWh real). History now only holds operating days; stale weekend defaults are purged on startup. [`tracking/consumption_tracker.py`](custom_components/omnibattery/tracking/consumption_tracker.py).
+
 ## [1.0.0b4] - 2026-07-02
 
 ### Added
