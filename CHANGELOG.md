@@ -1,8 +1,13 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.0b5] - 2026-07-04
+
+### Added
+- **Diagnostics and system health platforms**: per-entry, per-battery diagnostics (connection-health ladder, driver capabilities, non-responsive tracker state) and a system health card (connected/suspended/non-responsive counts), both read from a single `coordinator.health_snapshot()` so they can't drift. Thanks to @syphernl for the contribution. [`diagnostics.py`](custom_components/omnibattery/diagnostics.py), [`system_health.py`](custom_components/omnibattery/system_health.py).
+- **Temperature-based charge power limiting** (opt-in, off by default): linear derate from full charge power down to a floor as a battery's temperature crosses a configurable limit and band; floor is clamped to each battery's minimum operating power (v2/v3 = 800 W, vA/vD/Zendure = 0). Optional discharge derate too, to stay under the BMS over-temp cutoff. Controls in all six languages. Thanks to @syphernl for the contribution. [`__init__.py`](custom_components/omnibattery/__init__.py).
 
 ### Fixed
+- **Modbus retry backoff read a deprecated event-loop clock**: extracted a single `_backoff_jitter()` helper seeded from `time.monotonic()`, used by both the read and write retry loops; a failed pre-reconnect client close is now logged instead of silently swallowed. Thanks to @syphernl for the contribution. [`infra/modbus_client.py`](custom_components/omnibattery/infra/modbus_client.py).
 - **Directional hysteresis was one-shot**: suppressing a charge↔discharge flip cleared the direction memory, so the very next cycle let any tiny opposite command through — low-power direction flips despite the threshold. The memory now persists across idle cycles, and the flip gate also considers the grid error so small persistent demand isn't dead-zoned. [`__init__.py`](custom_components/omnibattery/__init__.py).
 - **Min charge/discharge power created a dead zone**: a steady load below ~minimum/kp was never covered (the incremental loop restarted from 0 each cycle and never accumulated up to the minimum). The controller now engages at the minimum when the over-correction lands inside the deadband, and stays idle otherwise — both stable, no on/off bouncing. [`__init__.py`](custom_components/omnibattery/__init__.py).
 - **Min-SOC discharge ping-pong**: SOC rebound (cell relaxation) after emptying to min_soc re-admitted the battery for a sliver of discharge, cycling the relay and micro-cycling the cells at low SOC. Discharge eligibility is now latched at min_soc until SOC recovers 2% above it. [`__init__.py`](custom_components/omnibattery/__init__.py).
