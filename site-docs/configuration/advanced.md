@@ -11,7 +11,7 @@ Forces a **100% charge once a week** for cell balancing. You only need to select
 | Field | Description | Default |
 |---|---|---|
 | **Day of the week** | On this day the battery will charge to 100% for cell balancing | — |
-| **Enable cell balance monitor** | If checked active cell balancing will be activated (this can be *slow*) | Disabled |
+| **Wait for solar charge delay** | If checked solar charge delay has priority (dashboard setting) | Disabled |
 
 See [Weekly full charge](../features/weekly-full-charge.md) for how it works.
 
@@ -29,6 +29,7 @@ Delays morning grid charging while the expected solar production can cover the r
 | **Solar forecast sensor** | Only if not configured in the initial setup step | — |
 | **Enable minimum SOC before delay** | if enabled battery will charge to configured SOC before solar charge delay | Disabled |
 | **Minimum SOC (%)** | Battery SOC to reach before solar charge delay kicks in | — |
+| **Balance deadband (kWh)** | Tolerance on energy-balance check; if battery+solar forecast<expected consumption then delay is longer (dashboard setting) | `0.5 kWh` |
 
 A larger margin (e.g. 180 min) unlocks grid charging earlier in the day; a smaller margin waits longer for the sun to cover the energy.
 
