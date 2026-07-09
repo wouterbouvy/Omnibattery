@@ -120,3 +120,8 @@ The system max charge/discharge caps are useful when the installation has a shar
 When **Enable system power limits** is off, both caps are ignored and their runtime number entities are not created. When enabled, the caps are exposed as slider entities on the Omnibattery System device.
 
 ![Advanced PD controller configuration](../assets/screenshots/configuration/advanced-pd-controller-config.png){ width="650"  style="display: block; margin: 0 auto;"}
+
+!!! warning "No-PD Direct Tracking"
+    You can bypass the PD controller by enabling this on the Control tab of your dashboard. Each battery will track the grid setpoint 1:1. There will be no integral/derivative/smoothing/rate-limit. It will use the deadband, min charge/discharge power, relay cooldown and target grid power.
+    **Use only if PD tuning can't tame your meter, PD is the safer default !**
+
