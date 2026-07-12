@@ -11,7 +11,7 @@ Forces a **100% charge once a week** for cell balancing. You only need to select
 | Field | Description | Default |
 |---|---|---|
 | **Day of the week** | On this day the battery will charge to 100% for cell balancing | — |
-| **Enable cell balance monitor** | If checked active cell balancing will be activated (this can be *slow*) | Disabled |
+| **Wait for solar charge delay** | If checked solar charge delay has priority (dashboard setting) | Disabled |
 
 See [Weekly full charge](../features/weekly-full-charge.md) for how it works.
 
@@ -29,12 +29,30 @@ Delays morning grid charging while the expected solar production can cover the r
 | **Solar forecast sensor** | Only if not configured in the initial setup step | — |
 | **Enable minimum SOC before delay** | if enabled battery will charge to configured SOC before solar charge delay | Disabled |
 | **Minimum SOC (%)** | Battery SOC to reach before solar charge delay kicks in | — |
+| **Balance deadband (kWh)** | Tolerance on energy-balance check; if battery+solar forecast<expected consumption then delay is longer (dashboard setting) | `0.5 kWh` |
 
 A larger margin (e.g. 180 min) unlocks grid charging earlier in the day; a smaller margin waits longer for the sun to cover the energy.
 
 See [Solar charge delay](../features/solar-charge-delay.md) for how it works.
 
 ![Solar charge delay configuration](../assets/screenshots/configuration/advanced-solar-charge-delay-config.png){ width="650"  style="display: block; margin: 0 auto;"}
+
+---
+
+## Temperature charge limit
+
+Reduces charge/discharge power when the battery gets hot. Above a temperature limit charging/discharging is throttled proportionally and restored as the battery cools down.
+
+Linear derate from full charge power down to a floor as a battery's temperature crosses a configurable limit and band; floor is clamped to each battery's minimum operating power (v2/v3 = 800 W, vA/vD/Zendure = 0). Optional discharge derate too, to stay under the BMS over-temp cutoff. Controls in all six languages. Thanks to @syphernl for the contribution.
+
+| Field | Description | Default |
+|---|---|---|
+| **Temperature limit (°C)** | Charging runs at full power at or below this temperature; above the derate begins | `40°C` |
+| **Ramp band (°C)** | Temperature range above the limit over which charge power ramps down to the minimum | `10°C` |
+| **Minimum charge power (%)** | Charge power at the limit plus the band, as a percentage of the normal charge ceiling. 0% stops charging when very hot | `40%` |
+| **Also throttle discharge** | Apply the same temperature derate to discharge power. Keeps discharge under the BMS over-temp cutoff. | `off`|
+
+![Temperature charge limit configuration](../assets/screenshots/configuration/advanced-temperature-charge-limit-config.png){ width="650"  style="display: block; margin: 0 auto;"}
 
 ---
 
@@ -102,3 +120,8 @@ The system max charge/discharge caps are useful when the installation has a shar
 When **Enable system power limits** is off, both caps are ignored and their runtime number entities are not created. When enabled, the caps are exposed as slider entities on the Omnibattery System device.
 
 ![Advanced PD controller configuration](../assets/screenshots/configuration/advanced-pd-controller-config.png){ width="650"  style="display: block; margin: 0 auto;"}
+
+!!! warning "No-PD Direct Tracking"
+    You can bypass the PD controller by enabling this on the Control tab of your dashboard. Each battery will track the grid setpoint 1:1. There will be no integral/derivative/smoothing/rate-limit. It will use the deadband, min charge/discharge power, relay cooldown and target grid power.
+    **Use only if PD tuning can't tame your meter, PD is the safer default !**
+
