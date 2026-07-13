@@ -1,12 +1,12 @@
 # Changelog
 
-### Added
-
 ## [1.0.0b7] - 2026-07-12
 
 ### Added
+- **Dashboard help for temperature-limit and SOC-floor rows**: tooltips/popovers added for the four temperature charge-limit params, the temperature discharge-limit switch and the guaranteed-minimum-SOC switch (all six languages). [`frontend/marstek-panel.js`](custom_components/omnibattery/frontend/marstek-panel.js).
 - **Hideable control cards**: in the Control tab's arrange mode, each card gets an eye toggle that parks it in a "Hidden cards" section below the grid; restore it from there. Persists per browser. [`frontend/marstek-panel.js`](custom_components/omnibattery/frontend/marstek-panel.js).
 - **Feedforward on confirmed load steps (PD mode)**: a kettle/oven-sized load step is now covered in one deadbeat cycle (~5-7 s, actuator floor) instead of the ~13 s exponential approach of the incremental P term. Two-sample confirmation rejects meter spikes; a cooldown and an opposite-sign pulse guard keep pulsing loads (induction hobs) on the stable slow-PD averaging. [`__init__.py`](custom_components/omnibattery/__init__.py).
+- **Simplified onboarding**: weekly full charge, solar charge delay, temperature charge limit, capacity protection, hourly balance and PD controller removed from the setup wizard and options menu — new installs get them present but disabled, everything is configured live from the dashboard. New Charge Delay Target SOC switch; weekly day select and per-feature sliders now always exist alongside their toggle. Existing installs keep their current settings. [`config_flow.py`](custom_components/omnibattery/config_flow.py).
 
 ### Fixed
 - **Discharge dropped to 0 W for 5-40 s on downward load steps**: the transient grid export while the discharging battery ramped down made the incremental PD cross zero and emit a charge order on another battery, zeroing the discharger (ping-pong every 1-3 min). A charge↔discharge flip must now persist past the actuator settle window (~5 s) before it goes through; transients collapse back to discharge, sustained solar surplus still flips. [`__init__.py`](custom_components/omnibattery/__init__.py).
@@ -73,6 +73,7 @@
 - **Daily/predictive home consumption inflated with an inverted grid meter**: the exact daily home-energy total and the predictive-charging consumption estimate read the grid sensor raw, skipping the `meter_inverted` sign correction the live power sensor already applied. With an inverted meter, exported solar was added instead of subtracted, inflating both figures roughly in proportion to how much was exported that day. [`tracking/consumption_tracker.py`](custom_components/omnibattery/tracking/consumption_tracker.py).
 
 ### Added
+- **More controls moved to the dashboard** (less setup config): weekly full charge on/off switch, price-based discharge switch (dynamic/real-time pricing), and the four hourly-balance tuning sliders (target, max offset, deadband, hysteresis) are now live entities on the dashboard with translations. [`switch.py`](custom_components/omnibattery/switch.py), [`number.py`](custom_components/omnibattery/number.py).
 - **Charge Delay Balance Deadband slider** (kWh, default 0.5): runtime tolerance on the charge-delay energy balance — the delay only unlocks once the solar+stored shortfall exceeds it. [`number.py`](custom_components/omnibattery/number.py).
 - **Synthetic energy totals survive a delete + re-add (Zendure)**: lifetime charge/discharge kWh are now backed up keyed by device serial in a delete-proof Store, so re-adding a battery reclaims its totals instead of restarting at 0. [`synthetic_energy_backup.py`](custom_components/omnibattery/synthetic_energy_backup.py).
 

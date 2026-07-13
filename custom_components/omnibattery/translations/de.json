@@ -1063,6 +1063,9 @@
       "charge_delay": {
         "name": "Ladeverzögerung"
       },
+      "delay_soc_setpoint_enabled": {
+        "name": "Verzögerungs-Ziel-SOC Aktiv"
+      },
       "temp_charge_limit": {
         "name": "Temperaturbasierte Ladebegrenzung"
       },
@@ -1110,6 +1113,15 @@
       },
       "hourly_balance": {
         "name": "Netto-Balance"
+      },
+      "weekly_full_charge_enabled": {
+        "name": "Wöchentliche Vollladung"
+      },
+      "dp_price_discharge_control": {
+        "name": "Preisbasierte Entladung"
+      },
+      "rt_price_discharge_control": {
+        "name": "Preisbasierte Entladung"
       },
       "lamp_switch": {
         "name": "Status-LEDs"
@@ -1588,6 +1600,18 @@
       },
       "battery_capacity": {
         "name": "Batteriekapazität"
+      },
+      "hourly_balance_target_net_wh": {
+        "name": "Ziel stündliche Balance"
+      },
+      "hourly_balance_max_offset_w": {
+        "name": "Max. Offset stündliche Balance"
+      },
+      "hourly_balance_deadband_wh": {
+        "name": "Totband stündliche Balance"
+      },
+      "hourly_balance_hysteresis_w": {
+        "name": "Hysterese stündliche Balance"
       },
       "soc_set": {
         "name": "Ziel-SOC"
