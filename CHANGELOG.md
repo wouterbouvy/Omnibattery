@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.1] - 2026-07-14
+
+### Fixed
+- **Charge stuck at the top voltage with the SOC below 100%** (voltage taper): an idle battery reads the same ≤10 W + Standby as a real BMS cutoff, which falsely latched the top-of-charge pause; the cutoff now only counts when we actually commanded the charge.
+
 ## [1.0.0] - 2026-07-13
 
 > ### ⚠️ Major change — new repository, integration renamed to “Omnibattery”
@@ -47,7 +52,6 @@
 - **Discharge-window chip shows the active slot number** (`Activa · Franja N`).
 
 ### Fixed
-- **Charge stuck at the top voltage with the SOC below 100%** (voltage taper): an idle battery reads the same ≤10 W + Standby as a real BMS cutoff, which falsely latched the top-of-charge pause; the cutoff now only counts when we actually commanded the charge.
 - **Discharge dropped to 0 W for 5-40 s on downward load steps**: the transient export while the discharger ramped down made the incremental PD cross zero and ping-pong with another battery; a charge↔discharge flip must now persist past the actuator settle window.
 - **False `ack_mismatch` errors and 5-min pool exclusions on laggy RS485 bridges** (#77): the post-write echo is accepted within a tolerance (10%, 100 W floor); exact verification is deferred to the poll.
 - **Battery reporting a 0 W power limit crashed the control cycle**: zero-limit batteries are now skipped by the load-sharing selector.
