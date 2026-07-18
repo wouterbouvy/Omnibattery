@@ -21,7 +21,11 @@ _LOGGER = logging.getLogger(__name__)
 # the same transaction_id, so late replies still match the outstanding request.
 _PYMODBUS_RETRIES = 2
 _STANDARD_WRAPPER_ATTEMPTS = 1
-_MVEM_WRAPPER_ATTEMPTS = 3
+# Queued-gateway mode sends once but keeps the full standard response window
+# open, so a slow gateway reply completes the pending request instead of
+# arriving under a new transaction id as an orphan PDU (the tid-mismatch flood,
+# issue #77).
+_RESPONSE_WINDOW_ATTEMPTS = _PYMODBUS_RETRIES + 1
 
 
 def _backoff_jitter(delay: float) -> float:
@@ -144,11 +148,11 @@ class MarstekModbusClient:
                 When set, communication uses Modbus RTU over serial instead of
                 TCP and ``host``/``port`` are ignored for the link (discussion
                 #350). None = Modbus TCP (default, unchanged behaviour).
-            queued_gateway_compatibility (bool): Experimental v2/TCP mode that
-                restores MVEM's legacy retry path: each transaction is sent once
-                and a failed attempt is retried as a new transaction. Intended
-                for gateways that queue same-ID resends as independent RTU
-                requests.
+            queued_gateway_compatibility (bool): Experimental v2/TCP mode for
+                gateways that queue requests and reply late. Each transaction is
+                sent once (no resend under a new transaction id) with a widened
+                response window, so a slow reply completes the pending request
+                instead of arriving as an orphan PDU (issue #77).
         """
         self.host = host
         self.port = port
@@ -173,17 +177,20 @@ class MarstekModbusClient:
         self._pymodbus_retries = (
             0 if self._queued_gateway_compatibility else _PYMODBUS_RETRIES
         )
-        # MVEM used three wrapper attempts. Preserve that proven gateway path
-        # deliberately: pymodbus sends once per transaction, while a timeout,
-        # short read or other communication failure starts a new transaction ID.
-        # Standard clients keep one wrapper attempt because their retries live
-        # inside pymodbus and reuse the same transaction ID.
-        self._wrapper_attempts = (
-            _MVEM_WRAPPER_ATTEMPTS
+        # Both paths use a single wrapper attempt. Standard clients retry inside
+        # pymodbus (same transaction id since 3.8). The queued-gateway opt-in
+        # sends once and never resends under a new transaction id: a re-send
+        # abandons the first tid, and the gateway's late reply then arrives as an
+        # orphan PDU that pymodbus's framer rejects and desyncs on (issue #77).
+        # Instead it widens the response window (below) so even a slow reply lands
+        # within the single attempt; a dropped write self-heals via the control
+        # loop's re-assert-every-cycle (queued mode disables skip-if-unchanged).
+        self._wrapper_attempts = _STANDARD_WRAPPER_ATTEMPTS
+        self._pymodbus_timeout = (
+            timeout * _RESPONSE_WINDOW_ATTEMPTS
             if self._queued_gateway_compatibility
-            else _STANDARD_WRAPPER_ATTEMPTS
+            else timeout
         )
-        self._pymodbus_timeout = timeout
         # Outer safety-net timeout for one request: must cover all pymodbus
         # internal attempts ((retries+1) x per-attempt timeout) plus margin.
         # Cancelling pymodbus mid-transaction orphans an already-sent request,
@@ -216,9 +223,10 @@ class MarstekModbusClient:
         fresh client instances, which avoids pymodbus's internal reconnect_delay
         growing up to 300s. Standard clients retry inside pymodbus (same
         transaction_id since 3.8), so a late reply is consumed by the
-        outstanding request. The experimental queued-gateway mode restores the
-        MVEM path: one wire send per transaction and up to three wrapper attempts,
-        each with a new transaction ID.
+        outstanding request. The experimental queued-gateway mode sends once per
+        transaction with the response window widened, so a slow gateway reply
+        still completes the request instead of orphaning under a new transaction
+        ID (issue #77).
 
         Serial uses RTU framing at a fixed 115200 8N1 — the rate Marstek's RS485
         link runs at (discussion #350); these are hardware-fixed, not tunable.
@@ -255,6 +263,16 @@ class MarstekModbusClient:
     def connected(self) -> bool:
         """Return whether the client is currently connected."""
         return self.client is not None and self.client.connected
+
+    @property
+    def queued_gateway_compatibility(self) -> bool:
+        """Whether the narrowed queued-gateway opt-in is active for this client.
+
+        Reflects the constructor's narrowing (Marstek Modbus TCP only; v3-family
+        and serial RTU are excluded), so callers can mirror the transport policy
+        without re-deriving the guard.
+        """
+        return self._queued_gateway_compatibility
 
     async def async_connect(self) -> bool:
         """
@@ -355,9 +373,10 @@ class MarstekModbusClient:
         failure. Callers decode the words with :func:`decode_registers`.
 
         Standard clients use one wrapper attempt and retry inside pymodbus with
-        the same transaction ID. The queued-gateway opt-in instead restores
-        MVEM's three wrapper attempts with pymodbus retries disabled, so every
-        failed attempt is retried as a new transaction ID.
+        the same transaction ID. The queued-gateway opt-in also uses one wrapper
+        attempt but disables pymodbus's internal retries and widens the response
+        window, so a slow reply completes the single attempt instead of being
+        resent under a new transaction ID (issue #77).
         """
         if not (0 <= register <= 0xFFFF):
             _LOGGER.error(
@@ -524,9 +543,9 @@ class MarstekModbusClient:
         Write a single value to a Modbus holding register asynchronously.
 
         Standard clients use one wrapper attempt and retry inside pymodbus. The
-        queued-gateway opt-in restores MVEM's three wrapper attempts with a new
-        transaction ID per attempt (see ``_read_raw``). Re-sending a
-        single-register write is idempotent.
+        queued-gateway opt-in also sends the write once, disabling pymodbus's
+        internal retries and widening the response window instead of resending
+        under a new transaction ID (see ``_read_raw``, issue #77).
 
         Args:
             register (int): Register address to write to.

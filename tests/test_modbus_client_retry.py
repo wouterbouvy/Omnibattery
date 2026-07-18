@@ -3,10 +3,10 @@
 Exercises ``_read_raw`` and ``async_write_register`` against a scripted fake
 pymodbus client (no hardware, no HA). These pin three deliberate properties:
 the standard profile uses a single wrapper attempt with pymodbus-internal
-same-transaction-ID retries; the queued-gateway opt-in restores MVEM's three
-wrapper attempts with one wire send per transaction ID; and failures do not
-reconnect from inside the loop (the coordinator owns reconnection; reconnecting
-here would storm the v3 single TCP slot, issue #361).
+same-transaction-ID retries; the queued-gateway opt-in also sends once per
+transaction ID (no resend under a new tid, widened response window instead,
+issue #77); and failures do not reconnect from inside the loop (the coordinator
+owns reconnection; reconnecting here would storm the v3 single TCP slot, #361).
 
 ``retry_delay=0`` keeps the backoff sleeps at zero so the tests run instantly.
 """
@@ -92,15 +92,13 @@ def test_read_default_is_single_attempt():
     assert fake.read_calls == 1
 
 
-def test_queued_gateway_default_retries_short_read_via_mvem_wrapper():
-    """The opt-in retries incomplete data as a fresh wrapper transaction."""
-    fake = _FakeClient(
-        read_results=[_Result([1]), _Result([1]), _Result([1, 2])]
-    )
+def test_queued_gateway_single_attempt_no_resend_on_short_read():
+    """The opt-in sends once per TID: a short read is not resent (#77)."""
+    fake = _FakeClient(read_results=[_Result([1])])
     c = _client_with_fake(fake, queued_gateway_compatibility=True)
     regs = asyncio.run(c._read_raw(0x0010, 2, retry_delay=0))
-    assert regs == [1, 2]
-    assert fake.read_calls == 3
+    assert regs is None
+    assert fake.read_calls == 1
 
 
 def test_read_retries_on_connection_error_then_succeeds():
@@ -192,14 +190,12 @@ def test_write_default_is_single_attempt():
     assert fake.write_calls == 1
 
 
-def test_queued_gateway_default_retries_write_via_mvem_wrapper():
-    """The opt-in retries a communication failure with a new transaction."""
-    fake = _FakeClient(
-        write_results=[asyncio.TimeoutError(), _Result(error=False)]
-    )
+def test_queued_gateway_single_attempt_no_resend_on_write_timeout():
+    """The opt-in sends the write once: a timeout is not resent under a new tid (#77)."""
+    fake = _FakeClient(write_results=[asyncio.TimeoutError()])
     c = _client_with_fake(fake, queued_gateway_compatibility=True)
-    assert asyncio.run(c.async_write_register(0x2000, 1, retry_delay=0)) is True
-    assert fake.write_calls == 2
+    assert asyncio.run(c.async_write_register(0x2000, 1, retry_delay=0)) is False
+    assert fake.write_calls == 1
 
 
 def test_write_retries_on_connection_error_then_succeeds():

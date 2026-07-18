@@ -3261,7 +3261,15 @@ class ChargeDischargeController:
         # drops and we fall through to a real write so the tracker keeps seeing it.
         data = coordinator.data or {}
         current_net = coordinator.driver.net_power_from_data(data)
-        if not force_write and current_net is not None and current_net == net_power:
+        # Queued-gateway mode re-asserts the setpoint every cycle (skip disabled)
+        # so a dropped write on a lossy queueing gateway self-heals next cycle the
+        # way the legacy MVEM path did; skip-if-unchanged would starve it (#77).
+        if (
+            not force_write
+            and not coordinator.queued_gateway_compatibility
+            and current_net is not None
+            and current_net == net_power
+        ):
             skip_write = True
             if net_power == 0:
                 # Commanded idle but the battery is actually discharging means it
@@ -3379,16 +3387,21 @@ class ChargeDischargeController:
         # Attempt the setpoint + verify, with one retry on failure.
         # last_fail_reason carries the most specific failure category seen across
         # both attempts so the non-responsive tracker can surface *why*.
+        # Queued-gateway mode uses a single attempt: an immediate resend re-issues
+        # the write under fresh transaction IDs and re-creates the orphan late-reply
+        # mismatch the transport layer avoids (#77). Recovery is left to the next
+        # control cycle, which re-asserts because skip-if-unchanged is disabled here.
         last_fail_reason: str | None = None
-        for attempt in range(2):
+        max_attempts = 1 if coordinator.queued_gateway_compatibility else 2
+        for attempt in range(max_attempts):
             result = await coordinator.apply_power(net_power, read_back=read_back)
 
             if not result.ok:
                 last_fail_reason = result.failure_reason or "comm_failure"
                 if not coordinator._is_shutting_down:
                     _LOGGER.warning(
-                        "[%s] Power write/feedback failed (attempt %d/2, reason=%s)",
-                        coordinator.name, attempt + 1, last_fail_reason
+                        "[%s] Power write/feedback failed (attempt %d/%d, reason=%s)",
+                        coordinator.name, attempt + 1, max_attempts, last_fail_reason
                     )
                 continue
 
@@ -3458,7 +3471,7 @@ class ChargeDischargeController:
             # Readback happened but the set-points did not match (mismatch), or the
             # confirmation read never followed (feedback_timeout). Both retryable.
             last_fail_reason = result.failure_reason or "ack_mismatch"
-            if attempt == 0:
+            if attempt + 1 < max_attempts:
                 # On a driver whose readback lags the write (Zendure HTTP echoes the
                 # previous limit for ~2 s), a first-attempt mismatch is expected
                 # echo/engage latency that the retry resolves — log it at debug, not
@@ -3498,9 +3511,9 @@ class ChargeDischargeController:
                 coordinator, last_fail_reason or "comm_failure"
             )
             _LOGGER.error(
-                "[%s] Power command failed after 2 attempts (reason=%s). "
+                "[%s] Power command failed after %d attempt(s) (reason=%s). "
                 "Battery may not have received command.",
-                coordinator.name, last_fail_reason or "comm_failure"
+                coordinator.name, max_attempts, last_fail_reason or "comm_failure"
             )
         return False
 

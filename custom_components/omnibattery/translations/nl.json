@@ -59,7 +59,7 @@
           "battery_version": "Selecteer de modelversie van uw batterij. Ev2 voor oudere modellen, Ev3 voor nieuwere modellen met bijgewerkte registerkaart, A (Venus A) of D (Venus D) voor hybride omvormermodellen",
           "slave_id": "Modbus slave-/unit-id (standaard 1). Wijzig dit alleen wanneer een Modbus-proxy meerdere batterijen op één IP:poort koppelt met verschillende slave-id's.",
           "serial_port": "Pad van de USB-RS485-adapter, bijv. /dev/ttyUSB0 of COM3. Vul dit in plaats van het IP-adres in om Modbus RTU via serieel te gebruiken; laat leeg voor TCP.",
-          "queued_gateway_compatibility": "Alleen voor Venus v2 via Modbus TCP. Herstelt de MVEM-route voor nieuwe pogingen: één verzending per transactie-ID en maximaal drie pogingen met een nieuwe ID na een mislukt, verlopen of onvolledig antwoord. Laat uitgeschakeld voor directe verbindingen, Elfin EW11, seriële RTU en normale gateways."
+          "queued_gateway_compatibility": "Alleen voor Venus v2 via Modbus TCP. Voor gateways die verzoeken in een wachtrij plaatsen en vertraagd antwoorden: verzendt elk verzoek één keer met een breder antwoordvenster (geen nieuwe verzending met een nieuw transactie-ID) en herbevestigt het instelpunt bij elke regelcyclus zodat een verloren schrijfopdracht zichzelf herstelt. Laat uitgeschakeld voor directe verbindingen, Elfin EW11, seriële RTU en normale gateways."
         }
       },
       "battery_connection_zendure": {
@@ -468,7 +468,7 @@
           "battery_version": "Selecteer uw batterijmodelversie",
           "slave_id": "Modbus slave-/unit-id (standaard 1). Wijzig dit alleen wanneer een Modbus-proxy meerdere batterijen op één IP:poort koppelt met verschillende slave-id's.",
           "serial_port": "Pad van de USB-RS485-adapter, bijv. /dev/ttyUSB0 of COM3. Vul dit in plaats van het IP-adres in om Modbus RTU via serieel te gebruiken; laat leeg voor TCP.",
-          "queued_gateway_compatibility": "Alleen voor Venus v2 via Modbus TCP. Herstelt de MVEM-route voor nieuwe pogingen: één verzending per transactie-ID en maximaal drie pogingen met een nieuwe ID na een mislukt, verlopen of onvolledig antwoord. Laat uitgeschakeld voor directe verbindingen, Elfin EW11, seriële RTU en normale gateways."
+          "queued_gateway_compatibility": "Alleen voor Venus v2 via Modbus TCP. Voor gateways die verzoeken in een wachtrij plaatsen en vertraagd antwoorden: verzendt elk verzoek één keer met een breder antwoordvenster (geen nieuwe verzending met een nieuw transactie-ID) en herbevestigt het instelpunt bij elke regelcyclus zodat een verloren schrijfopdracht zichzelf herstelt. Laat uitgeschakeld voor directe verbindingen, Elfin EW11, seriële RTU en normale gateways."
         }
       },
       "reconfigure_battery_zendure": {
@@ -601,7 +601,7 @@
           "battery_version": "Selecteer de modelversie van uw batterij. Ev2 voor oudere modellen, Ev3 voor nieuwere modellen met bijgewerkte registerkaart, A (Venus A) of D (Venus D) voor hybride omvormermodellen",
           "slave_id": "Modbus slave-/unit-id (standaard 1). Wijzig dit alleen wanneer een Modbus-proxy meerdere batterijen op één IP:poort koppelt met verschillende slave-id's.",
           "serial_port": "Pad van de USB-RS485-adapter, bijv. /dev/ttyUSB0 of COM3. Vul dit in plaats van het IP-adres in om Modbus RTU via serieel te gebruiken; laat leeg voor TCP.",
-          "queued_gateway_compatibility": "Alleen voor Venus v2 via Modbus TCP. Herstelt de MVEM-route voor nieuwe pogingen: één verzending per transactie-ID en maximaal drie pogingen met een nieuwe ID na een mislukt, verlopen of onvolledig antwoord. Laat uitgeschakeld voor directe verbindingen, Elfin EW11, seriële RTU en normale gateways."
+          "queued_gateway_compatibility": "Alleen voor Venus v2 via Modbus TCP. Voor gateways die verzoeken in een wachtrij plaatsen en vertraagd antwoorden: verzendt elk verzoek één keer met een breder antwoordvenster (geen nieuwe verzending met een nieuw transactie-ID) en herbevestigt het instelpunt bij elke regelcyclus zodat een verloren schrijfopdracht zichzelf herstelt. Laat uitgeschakeld voor directe verbindingen, Elfin EW11, seriële RTU en normale gateways."
         }
       },
       "battery_connection_zendure": {

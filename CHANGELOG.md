@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.1b4] - 2026-07-18
+
+### Fixed
+- **Queued Modbus gateway compatibility reworked** (#77): the opt-in now sends each request once with a widened response window and no transaction-ID resend at any layer (both the transport and the control-loop retry send once), and re-asserts the setpoint each control cycle so a dropped write self-heals like the legacy MVEM path — fixing the transaction-ID mismatch flood on shared TCP-to-RTU gateways.
+
 ## [1.0.1b3] - 2026-07-18
 
 ### Fixed

@@ -211,8 +211,8 @@ def test_v2_tcp_keeps_standard_retries_by_default():
     assert c._request_timeout == c._timeout * 3 + 2
 
 
-def test_v2_queued_gateway_mode_restores_mvem_retry_profile():
-    """The opt-in sends once per TID and retries through the wrapper."""
+def test_v2_queued_gateway_mode_widens_response_window():
+    """The opt-in sends once per TID with the full response window, no resend."""
     c = _make_client(
         host="192.168.1.50",
         port=502,
@@ -220,12 +220,13 @@ def test_v2_queued_gateway_mode_restores_mvem_retry_profile():
         queued_gateway_compatibility=True,
     )
     assert c._queued_gateway_compatibility is True
+    assert c.queued_gateway_compatibility is True
     assert c._pymodbus_retries == 0
     assert c.client.ctx.retries == 0
-    assert c._wrapper_attempts == 3
-    assert c._pymodbus_timeout == c._timeout
-    assert c.client.ctx.comm_params.timeout_connect == c._timeout
-    assert c._request_timeout == c._timeout + 2
+    assert c._wrapper_attempts == 1
+    assert c._pymodbus_timeout == c._timeout * 3
+    assert c.client.ctx.comm_params.timeout_connect == c._timeout * 3
+    assert c._request_timeout == c._timeout * 3 + 2
 
 
 def test_v3_tcp_keeps_internal_same_tid_retries():
@@ -243,7 +244,7 @@ def test_v3_tcp_keeps_internal_same_tid_retries():
     "is_v3, compatibility, expected_retries, expected_timeout",
     [
         (False, False, 2, 10),
-        (False, True, 0, 10),
+        (False, True, 0, 30),
         (True, True, 2, 10),
     ],
 )
