@@ -274,6 +274,11 @@ class MarstekModbusDriver(BatteryDriver):
     def capabilities(self) -> DriverCapabilities:
         return self._capabilities
 
+    @property
+    def queued_gateway_compatibility(self) -> bool:
+        """Whether the transport client runs in narrowed queued-gateway mode."""
+        return self._client.queued_gateway_compatibility
+
     _MODEL_LABELS: dict[str, str] = {
         "v2": "Venus E v2",
         "v3": "Venus E v3",

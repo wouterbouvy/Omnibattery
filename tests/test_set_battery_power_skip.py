@@ -85,6 +85,7 @@ def _controller():
         _idle_commanded_started={},
         _non_responsive=SimpleNamespace(
             record_non_delivery=lambda *a, **k: False,
+            record_comm_failure=lambda *a, **k: None,
             clear=lambda c: None,
             set_wake_attempted=lambda *a, **k: None,
         ),
@@ -245,6 +246,41 @@ async def test_skip_when_charge_unchanged():
 
     assert result is True
     coord.apply_power.assert_not_called()
+
+
+async def test_queued_gateway_reasserts_unchanged_setpoint():
+    """Queued-gateway mode disables skip-if-unchanged: the setpoint is re-written
+    every cycle so a dropped write on a lossy gateway self-heals (#77)."""
+    coord = _Coord({"force_mode": 1, "set_charge_power": 500, "set_discharge_power": 0})
+    coord.queued_gateway_compatibility = True
+    coord.apply_power = AsyncMock(return_value=_ok(500, battery_power_w=500))
+    ctrl = _controller()
+
+    result = await ChargeDischargeController._set_battery_power(ctrl, coord, 500, 0)
+
+    assert result is True
+    coord.apply_power.assert_called_once()
+
+
+async def test_queued_gateway_no_resend_on_failure():
+    """Queued mode sends the write once on failure — no immediate resend under a
+    fresh transaction ID (would orphan late gateway replies); recovery is left to
+    the next control cycle (#77). Standard mode still retries twice."""
+    coord = _Coord({"force_mode": 2, "set_charge_power": 0, "set_discharge_power": 300})
+    coord.queued_gateway_compatibility = True
+    coord._is_shutting_down = False
+    coord.apply_power = AsyncMock(
+        return_value=SetpointResult(
+            ok=False, net_power_w=-300, confirmed=False,
+            failure_reason="feedback_timeout",
+        )
+    )
+    ctrl = _controller()
+
+    result = await ChargeDischargeController._set_battery_power(ctrl, coord, 0, 300)
+
+    assert result is False
+    coord.apply_power.assert_called_once()
 
 
 async def test_no_skip_when_discharge_unchanged_but_not_delivering():
