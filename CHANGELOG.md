@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.1b3] - 2026-07-18
+
+### Fixed
+- **Slow Modbus gateways no longer block Home Assistant startup**: control cycles now run as background tasks, so a cycle stuck in gateway retries can't delay the rest of the boot ("Something is blocking Home Assistant from wrapping up the start up phase").
+
 ## [1.0.1b2] - 2026-07-17
 
 ### Fixed
