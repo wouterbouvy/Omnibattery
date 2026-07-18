@@ -3823,6 +3823,23 @@ class ChargeDischargeController:
                 self._grid_filter_ema += alpha * (sensor_raw - self._grid_filter_ema)
         return self._grid_filter_ema
 
+    @callback
+    def schedule_control_cycle(self, now=None):
+        """Launch a control cycle as a config-entry background task.
+
+        Timer and state-change trackers run their callbacks as HA-tracked
+        tasks, and HA startup waits for tracked tasks before wrapping up. A
+        cycle stuck in Modbus retries against a slow gateway would block the
+        whole bootstrap ("Something is blocking Home Assistant..."), delaying
+        every integration set up after this one. Background tasks are exempt
+        from the startup gate and are still cancelled on entry unload.
+        """
+        self.config_entry.async_create_background_task(
+            self.hass,
+            self.async_update_charge_discharge(now),
+            "omnibattery_control_cycle",
+        )
+
     async def async_update_charge_discharge(self, now=None):
         """Run one control cycle, guarded against overlapping triggers.
 
@@ -3875,9 +3892,23 @@ class ChargeDischargeController:
             self.hass, self._no_pd_command_delay, self._fire_no_pd_debounced_run
         )
 
-    async def _fire_no_pd_debounced_run(self, _now):
-        """Run the deferred no-PD control cycle (called by async_call_later)."""
+    @callback
+    def _fire_no_pd_debounced_run(self, _now):
+        """Launch the deferred no-PD control cycle (called by async_call_later).
+
+        Sync callback + background task for the same reason as
+        schedule_control_cycle: async_call_later would otherwise run the cycle
+        as a startup-tracked task.
+        """
         self._no_pd_debounce_unsub = None
+        self.config_entry.async_create_background_task(
+            self.hass,
+            self._run_no_pd_debounced_cycle(),
+            "omnibattery_no_pd_cycle",
+        )
+
+    async def _run_no_pd_debounced_cycle(self):
+        """Run the deferred no-PD control cycle."""
         if self._control_lock.locked():
             return
         async with self._control_lock:
@@ -5702,7 +5733,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return _wrapped
 
     unsub_control = _call_once(async_track_time_interval(
-        hass, controller.async_update_charge_discharge, timedelta(seconds=2.0)
+        hass, controller.schedule_control_cycle, timedelta(seconds=2.0)
     ))
     entry.async_on_unload(unsub_control)
 
@@ -5725,9 +5756,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # timer above stays as a watchdog (runs the time-based subsystems and forces
     # a safety recalculation if the sensor goes silent). Overlapping triggers
     # are serialized by the controller's _control_lock.
-    async def _on_consumption_changed(event):
+    @callback
+    def _on_consumption_changed(event):
         # Do not forward the Event as `now`; the handler expects datetime|None.
-        await controller.async_update_charge_discharge()
+        controller.schedule_control_cycle()
 
     unsub_consumption = _call_once(async_track_state_change_event(
         hass, [controller.consumption_sensor], _on_consumption_changed
