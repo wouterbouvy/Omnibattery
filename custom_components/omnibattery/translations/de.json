@@ -1319,6 +1319,12 @@
       "inverter_state": {
         "name": "Wechselrichterstatus"
       },
+      "battery_status": {
+        "name": "Batteriestatus"
+      },
+      "operating_mode": {
+        "name": "Betriebsmodus"
+      },
       "battery_voltage": {
         "name": "Batteriespannung"
       },

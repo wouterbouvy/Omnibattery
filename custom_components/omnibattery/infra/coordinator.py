@@ -158,9 +158,11 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         self.commanded_charge_power = 0
         self.commanded_discharge_power = 0
         # Software charge-power ceiling for drivers whose reported max_charge_power
-        # is a read-only device cap (Zendure chargeMaxLimit). Caps PD allocation
-        # below the device limit; default = device max (no extra cap). Persisted.
+        # is a read-only device cap (Zendure chargeMaxLimit / Anker 10036). Caps PD
+        # allocation below the device limit; default = device max (no extra cap).
+        # Persisted. Same idea for discharge on Anker (10038).
         self.user_max_charge_power = max_charge_power
+        self.user_max_discharge_power = max_discharge_power
         self.allow_charge = allow_charge
         self.allow_discharge = allow_discharge
         self.active_balance_mode_enabled = active_balance_mode_enabled
@@ -341,8 +343,15 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
     def needs_software_max_charge(self) -> bool:
         """True when max_charge_power is a read-only device cap rather than a
         writable register, so a software ceiling entity governs it (e.g. Zendure
-        chargeMaxLimit)."""
+        chargeMaxLimit, Anker 10036)."""
         return not any(d["key"] == "max_charge_power" for d in self.number_definitions)
+
+    @property
+    def needs_software_max_discharge(self) -> bool:
+        """True when max_discharge_power is a read-only device cap rather than a
+        writable register (e.g. Anker 10038). Zendure exposes inverse_max_power
+        as a writable number instead, so it reports False."""
+        return not any(d["key"] == "max_discharge_power" for d in self.number_definitions)
 
     @property
     def is_available(self) -> bool:
@@ -372,8 +381,16 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         return {
             "identifiers": {(DOMAIN, f"{self.device_key}")},
             "name": self.name,
-            "manufacturer": "Zendure" if self.brand == "zendure" else "Marstek",
-            "model": self.driver.model_label or ("Zendure" if self.brand == "zendure" else "Venus"),
+            "manufacturer": (
+                "Zendure" if self.brand == "zendure"
+                else "Anker" if self.brand == "anker"
+                else "Marstek"
+            ),
+            "model": self.driver.model_label or (
+                "Zendure" if self.brand == "zendure"
+                else "Solarbank Max AC" if self.brand == "anker"
+                else "Venus"
+            ),
         }
 
     async def connect(self) -> bool:
@@ -793,15 +810,19 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
             self.min_soc = int(self.data["min_soc"])
         if "max_charge_power" in self.data:
             device_cap = int(self.data["max_charge_power"])
-            # When max_charge_power is a read-only device cap (Zendure), honour the
-            # user's software ceiling on top of it; otherwise the polled register
+            # When max_charge_power is a read-only device cap (Zendure/Anker), honour
+            # the user's software ceiling on top of it; otherwise the polled register
             # value is itself the user setting.
             self.max_charge_power = (
                 min(device_cap, self.user_max_charge_power)
                 if self.needs_software_max_charge else device_cap
             )
         if "max_discharge_power" in self.data:
-            self.max_discharge_power = int(self.data["max_discharge_power"])
+            device_cap = int(self.data["max_discharge_power"])
+            self.max_discharge_power = (
+                min(device_cap, self.user_max_discharge_power)
+                if self.needs_software_max_discharge else device_cap
+            )
 
         if updated_data:
             _LOGGER.debug(

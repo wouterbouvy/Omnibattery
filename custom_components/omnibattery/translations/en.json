@@ -1307,6 +1307,12 @@
       "inverter_state": {
         "name": "Inverter State"
       },
+      "battery_status": {
+        "name": "Battery Status"
+      },
+      "operating_mode": {
+        "name": "Operating Mode"
+      },
       "battery_voltage": {
         "name": "Battery Voltage"
       },

@@ -5592,6 +5592,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.user_max_charge_power = battery_config.get(
             "user_max_charge_power", coordinator.max_charge_power
         )
+        coordinator.user_max_discharge_power = battery_config.get(
+            "user_max_discharge_power", coordinator.max_discharge_power
+        )
         coordinator.active_balance_mode_started_ts = battery_config.get("active_balance_mode_started_ts")
         coordinator.active_balance_mode_run_date = battery_config.get("active_balance_mode_run_date")
         coordinator.active_balance_mode_phase = battery_config.get("active_balance_mode_phase")

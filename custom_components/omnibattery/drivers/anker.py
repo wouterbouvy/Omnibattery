@@ -102,16 +102,32 @@ SENSOR_DEFINITIONS: list[dict] = [
      "scan_interval": "low", "enabled_by_default": True},
     {"key": "battery_status", "name": "Battery Status", "unit": None,
      "device_class": None, "state_class": None, "scale": 1, "precision": 0,
-     "scan_interval": "medium", "enabled_by_default": True},
+     "icon": "mdi:battery", "scan_interval": "medium", "enabled_by_default": True,
+     # Official Anker value_mapping for input 10001
+     "states": {
+         0: "Standby",
+         1: "Charging",
+         2: "Discharging",
+         3: "Sleep",
+     }},
     {"key": "operating_mode", "name": "Operating Mode", "unit": None,
      "device_class": None, "state_class": None, "scale": 1, "precision": 0,
-     "scan_interval": "medium", "enabled_by_default": True},
-    {"key": "max_charge_power", "name": "Max Charge Power", "unit": "W",
-     "device_class": "power", "state_class": "measurement", "scale": 1, "precision": 0,
-     "scan_interval": "low", "enabled_by_default": False},
-    {"key": "max_discharge_power", "name": "Max Discharge Power", "unit": "W",
-     "device_class": "power", "state_class": "measurement", "scale": 1, "precision": 0,
-     "scan_interval": "low", "enabled_by_default": False},
+     "icon": "mdi:cog", "scan_interval": "medium", "enabled_by_default": True,
+     # Official Anker operating_mode options for holding 10064
+     "states": {
+         0: "Self Consumption",
+         1: "TOU Mode",
+         3: "Third-Party Control",
+         4: "Custom Mode",
+         5: "Socket Overlay Mode",
+         6: "Smart Mode",
+         7: "Dynamic Pricing",
+     }},
+    # max_charge_power / max_discharge_power (10036/10038) stay in _FIELD_SPECS
+    # for telemetry + soft-max clamping only — they are internal device caps in
+    # the official YAML, not user-facing sensors. Exposing them as sensors stole
+    # the unique_id from MarstekSoftMaxChargeNumber and showed the hardware
+    # ceiling (3500 W) instead of the configured user limit.
     {"key": "battery_total_energy", "name": "Battery Total Energy", "unit": "kWh",
      "device_class": "energy", "state_class": "total", "scale": 0.1, "precision": 2,
      "scan_interval": "low", "enabled_by_default": True},
