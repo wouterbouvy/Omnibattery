@@ -1319,6 +1319,12 @@
       "inverter_state": {
         "name": "Estat de l'Inversor"
       },
+      "battery_status": {
+        "name": "Estat de la Bateria"
+      },
+      "operating_mode": {
+        "name": "Mode de Funcionament"
+      },
       "battery_voltage": {
         "name": "Tensió de la Bateria"
       },

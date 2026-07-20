@@ -58,6 +58,36 @@ def test_model_label():
     assert _driver().model_label == "Solarbank Max AC"
 
 
+def test_power_caps_are_telemetry_not_sensors():
+    """Hardware max charge/discharge (10036/10038) must stay off SENSOR_DEFINITIONS
+    so the soft-max number entities can own the user-facing Max. Laadvermogen /
+    Max. Ontlaadvermogen unique_ids."""
+    from custom_components.omnibattery.drivers import anker as anker_mod
+
+    sensor_keys = {d["key"] for d in anker_mod.SENSOR_DEFINITIONS}
+    number_keys = {d["key"] for d in anker_mod.NUMBER_DEFINITIONS}
+    field_keys = {f["key"] for f in anker_mod._FIELD_SPECS}
+    assert "max_charge_power" not in sensor_keys
+    assert "max_discharge_power" not in sensor_keys
+    assert "max_charge_power" not in number_keys
+    assert "max_discharge_power" not in number_keys
+    assert "max_charge_power" in field_keys
+    assert "max_discharge_power" in field_keys
+    assert "max_charge_power" in _driver().control_dependency_keys
+    assert "max_discharge_power" in _driver().control_dependency_keys
+
+
+def test_status_and_mode_sensors_have_state_maps():
+    from custom_components.omnibattery.drivers import anker as anker_mod
+
+    by_key = {d["key"]: d for d in anker_mod.SENSOR_DEFINITIONS}
+    assert by_key["battery_status"]["states"][1] == "Charging"
+    assert by_key["battery_status"]["states"][2] == "Discharging"
+    assert by_key["operating_mode"]["states"][3] == "Third-Party Control"
+    # Register 10156 reports tenths of a degree (340 → 34.0 °C).
+    assert by_key["temperature"]["scale"] == 0.1
+
+
 def test_encode_int32_roundtrip():
     for value in (0, 500, -800, 3500, -3500):
         words = encode_int32(value)
@@ -155,7 +185,7 @@ async def test_apply_setpoint_charge_writes_negative_wire_value():
     result = await drv.apply_setpoint(500)
     assert result.ok is True
     assert result.net_power_w == 500
-    assert result.confirmed is False
+    assert result.confirmed is True
     client.async_write_registers_int32.assert_awaited_with(10071, -500)
 
 

@@ -1319,6 +1319,12 @@
       "inverter_state": {
         "name": "Omvormerstatus"
       },
+      "battery_status": {
+        "name": "Batterijstatus"
+      },
+      "operating_mode": {
+        "name": "Bedrijfsmodus"
+      },
       "battery_voltage": {
         "name": "Batterijspanning"
       },

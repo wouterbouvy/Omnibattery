@@ -98,20 +98,36 @@ SENSOR_DEFINITIONS: list[dict] = [
      "device_class": "power", "state_class": "measurement", "scale": 1, "precision": 0,
      "scan_interval": "high", "enabled_by_default": True},
     {"key": "temperature", "name": "Temperature", "unit": "°C",
-     "device_class": "temperature", "state_class": "measurement", "scale": 1, "precision": 0,
+     "device_class": "temperature", "state_class": "measurement", "scale": 0.1, "precision": 1,
      "scan_interval": "low", "enabled_by_default": True},
     {"key": "battery_status", "name": "Battery Status", "unit": None,
      "device_class": None, "state_class": None, "scale": 1, "precision": 0,
-     "scan_interval": "medium", "enabled_by_default": True},
+     "icon": "mdi:battery", "scan_interval": "medium", "enabled_by_default": True,
+     # Official Anker value_mapping for input 10001
+     "states": {
+         0: "Standby",
+         1: "Charging",
+         2: "Discharging",
+         3: "Sleep",
+     }},
     {"key": "operating_mode", "name": "Operating Mode", "unit": None,
      "device_class": None, "state_class": None, "scale": 1, "precision": 0,
-     "scan_interval": "medium", "enabled_by_default": True},
-    {"key": "max_charge_power", "name": "Max Charge Power", "unit": "W",
-     "device_class": "power", "state_class": "measurement", "scale": 1, "precision": 0,
-     "scan_interval": "low", "enabled_by_default": False},
-    {"key": "max_discharge_power", "name": "Max Discharge Power", "unit": "W",
-     "device_class": "power", "state_class": "measurement", "scale": 1, "precision": 0,
-     "scan_interval": "low", "enabled_by_default": False},
+     "icon": "mdi:cog", "scan_interval": "medium", "enabled_by_default": True,
+     # Official Anker operating_mode options for holding 10064
+     "states": {
+         0: "Self Consumption",
+         1: "TOU Mode",
+         3: "Third-Party Control",
+         4: "Custom Mode",
+         5: "Socket Overlay Mode",
+         6: "Smart Mode",
+         7: "Dynamic Pricing",
+     }},
+    # max_charge_power / max_discharge_power (10036/10038) stay in _FIELD_SPECS
+    # for telemetry + soft-max clamping only — they are internal device caps in
+    # the official YAML, not user-facing sensors. Exposing them as sensors stole
+    # the unique_id from MarstekSoftMaxChargeNumber and showed the hardware
+    # ceiling (3500 W) instead of the configured user limit.
     {"key": "battery_total_energy", "name": "Battery Total Energy", "unit": "kWh",
      "device_class": "energy", "state_class": "total", "scale": 0.1, "precision": 2,
      "scan_interval": "low", "enabled_by_default": True},
@@ -398,12 +414,24 @@ class AnkerModbusDriver(BatteryDriver):
 
         self._last_net_power_w = net
         applied = {"commanded_net_power": net, "operating_mode": _OPERATING_MODE_THIRD_PARTY}
-        # Setpoint register is never_read_device — no confirmation read of 10071.
-        _ = read_back
+        # Register 10071 is never_read_device — Modbus write success is the ACK.
+        # Returning confirmed=False made the control loop treat every readback
+        # cycle as ack_mismatch (Anker is a "fast" actuator so read_back is
+        # periodically True). When read_back is requested, also sample delivered
+        # power from input 10008 for non-delivery detection.
+        battery_power_w: Optional[int] = None
+        if read_back:
+            snap = await self.read_telemetry(["battery_power"])
+            raw = snap.get("battery_power")
+            if raw is not None:
+                battery_power_w = int(raw)
+                applied["battery_power"] = battery_power_w
         return SetpointResult(
             ok=True,
             net_power_w=net,
-            confirmed=False,
+            confirmed=True,
+            exact=True,
+            battery_power_w=battery_power_w,
             applied=applied,
         )
 
