@@ -155,7 +155,7 @@ async def test_apply_setpoint_charge_writes_negative_wire_value():
     result = await drv.apply_setpoint(500)
     assert result.ok is True
     assert result.net_power_w == 500
-    assert result.confirmed is False
+    assert result.confirmed is True
     client.async_write_registers_int32.assert_awaited_with(10071, -500)
 
 
