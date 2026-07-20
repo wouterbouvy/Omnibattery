@@ -39,14 +39,6 @@ DEFAULT_SLAVE_ID = 1
 CONF_SERIAL_PORT = "serial_port"
 SERIAL_BAUDRATE = 115200
 
-# Experimental per-battery compatibility for queued Modbus TCP-to-RTU
-# gateways. Disabled by default: ordinary v2 connections keep pymodbus's
-# internal same-transaction-id retries. When enabled on v2/TCP, each request is
-# sent once with a widened response window (no resend under a new transaction id,
-# which orphaned late gateway replies) and the control loop re-asserts the
-# setpoint every cycle so a dropped write self-heals (issue #77).
-CONF_QUEUED_GATEWAY_COMPATIBILITY = "queued_gateway_compatibility"
-
 # Maximum power (W) per battery version — used by config_flow to set slider limits
 MAX_POWER_BY_VERSION = {
     "v2": 2500,
@@ -402,6 +394,15 @@ EXTERNAL_NET_BALANCE_CANDIDATES: list[str] = ["sensor.balance_neto"]
 
 # Weekly Full Charge Delay Constants
 CHARGE_EFFICIENCY = 0.85  # Conservative factor for charge power estimation
+
+# Round-trip efficiency used by the arbitrage-margin gate (see
+# CONF_MIN_ARBITRAGE_MARGIN). Distinct from CHARGE_EFFICIENCY, which derates
+# charge *power* to size a charging window; this one is the AC-to-AC energy
+# ratio (kWh out / kWh in) used to value a stored kWh. Default matches
+# CHARGE_EFFICIENCY so behavior is unchanged for anyone who does not tune it.
+DEFAULT_ROUND_TRIP_EFFICIENCY = 0.85
+MIN_ROUND_TRIP_EFFICIENCY = 0.50
+MAX_ROUND_TRIP_EFFICIENCY = 1.0
 DELAY_SAFETY_FACTOR = 1.3  # 30% margin on energy balance
 LOW_FORECAST_THRESHOLD_FACTOR = 1.5  # forecast < 1.5 × capacity → bad solar day
 T_START_THRESHOLD_KWH = 0.1  # Threshold to detect solar production start
@@ -564,6 +565,14 @@ CONF_MAX_PRICE_THRESHOLD = "max_price_threshold"
 # while price <= this value; unset → falls back to max_price_threshold so
 # existing single-threshold installs keep identical behavior.
 CONF_DISCHARGE_PRICE_THRESHOLD = "discharge_price_threshold"
+# Minimum arbitrage margin (currency/kWh) required before a slot is eligible for
+# grid charging. Unset (None) → disabled, and slot selection behaves exactly as
+# before. When set, a candidate slot must satisfy
+#   expected_discharge_price * round_trip_efficiency - slot_price >= margin
+# so that charging is skipped on days where the intraday spread cannot repay the
+# conversion losses. Applied on top of (not instead of) CONF_MAX_PRICE_THRESHOLD.
+CONF_MIN_ARBITRAGE_MARGIN = "min_arbitrage_margin"
+CONF_ROUND_TRIP_EFFICIENCY = "round_trip_efficiency"
 
 PREDICTIVE_MODE_TIME_SLOT = "time_slot"
 PREDICTIVE_MODE_DYNAMIC_PRICING = "dynamic_pricing"

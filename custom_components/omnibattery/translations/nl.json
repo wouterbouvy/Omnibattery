@@ -49,8 +49,7 @@
           "port": "Modbus-poort",
           "battery_version": "Batterijmodel",
           "slave_id": "Modbus slave-ID",
-          "serial_port": "Seriële poort (Modbus RTU)",
-          "queued_gateway_compatibility": "Compatibiliteit met verouderde MVEM-Modbusroute (experimenteel)"
+          "serial_port": "Seriële poort (Modbus RTU)"
         },
         "data_description": {
           "name": "Beschrijvende naam om deze batterij te identificeren",
@@ -58,8 +57,7 @@
           "port": "Modbus-poort (meestal 502)",
           "battery_version": "Selecteer de modelversie van uw batterij. Ev2 voor oudere modellen, Ev3 voor nieuwere modellen met bijgewerkte registerkaart, A (Venus A) of D (Venus D) voor hybride omvormermodellen",
           "slave_id": "Modbus slave-/unit-id (standaard 1). Wijzig dit alleen wanneer een Modbus-proxy meerdere batterijen op één IP:poort koppelt met verschillende slave-id's.",
-          "serial_port": "Pad van de USB-RS485-adapter, bijv. /dev/ttyUSB0 of COM3. Vul dit in plaats van het IP-adres in om Modbus RTU via serieel te gebruiken; laat leeg voor TCP.",
-          "queued_gateway_compatibility": "Alleen voor Venus v2 via Modbus TCP. Voor gateways die verzoeken in een wachtrij plaatsen en vertraagd antwoorden: verzendt elk verzoek één keer met een breder antwoordvenster (geen nieuwe verzending met een nieuw transactie-ID) en herbevestigt het instelpunt bij elke regelcyclus zodat een verloren schrijfopdracht zichzelf herstelt. Laat uitgeschakeld voor directe verbindingen, Elfin EW11, seriële RTU en normale gateways."
+          "serial_port": "Pad van de USB-RS485-adapter, bijv. /dev/ttyUSB0 of COM3. Vul dit in plaats van het IP-adres in om Modbus RTU via serieel te gebruiken; laat leeg voor TCP."
         }
       },
       "battery_connection_zendure": {
@@ -458,8 +456,7 @@
           "port": "Modbus-poort",
           "battery_version": "Batterijmodel",
           "slave_id": "Modbus slave-ID",
-          "serial_port": "Seriële poort (Modbus RTU)",
-          "queued_gateway_compatibility": "Compatibiliteit met verouderde MVEM-Modbusroute (experimenteel)"
+          "serial_port": "Seriële poort (Modbus RTU)"
         },
         "data_description": {
           "name": "Beschrijvende naam om deze batterij te identificeren",
@@ -467,8 +464,7 @@
           "port": "Modbus-poort (gewoonlijk 502)",
           "battery_version": "Selecteer uw batterijmodelversie",
           "slave_id": "Modbus slave-/unit-id (standaard 1). Wijzig dit alleen wanneer een Modbus-proxy meerdere batterijen op één IP:poort koppelt met verschillende slave-id's.",
-          "serial_port": "Pad van de USB-RS485-adapter, bijv. /dev/ttyUSB0 of COM3. Vul dit in plaats van het IP-adres in om Modbus RTU via serieel te gebruiken; laat leeg voor TCP.",
-          "queued_gateway_compatibility": "Alleen voor Venus v2 via Modbus TCP. Voor gateways die verzoeken in een wachtrij plaatsen en vertraagd antwoorden: verzendt elk verzoek één keer met een breder antwoordvenster (geen nieuwe verzending met een nieuw transactie-ID) en herbevestigt het instelpunt bij elke regelcyclus zodat een verloren schrijfopdracht zichzelf herstelt. Laat uitgeschakeld voor directe verbindingen, Elfin EW11, seriële RTU en normale gateways."
+          "serial_port": "Pad van de USB-RS485-adapter, bijv. /dev/ttyUSB0 of COM3. Vul dit in plaats van het IP-adres in om Modbus RTU via serieel te gebruiken; laat leeg voor TCP."
         }
       },
       "reconfigure_battery_zendure": {
@@ -591,8 +587,7 @@
           "port": "Modbus-poort",
           "battery_version": "Batterijmodel",
           "slave_id": "Modbus slave-ID",
-          "serial_port": "Seriële poort (Modbus RTU)",
-          "queued_gateway_compatibility": "Compatibiliteit met verouderde MVEM-Modbusroute (experimenteel)"
+          "serial_port": "Seriële poort (Modbus RTU)"
         },
         "data_description": {
           "name": "Beschrijvende naam om deze batterij te identificeren",
@@ -600,8 +595,7 @@
           "port": "Modbus-poort (meestal 502)",
           "battery_version": "Selecteer de modelversie van uw batterij. Ev2 voor oudere modellen, Ev3 voor nieuwere modellen met bijgewerkte registerkaart, A (Venus A) of D (Venus D) voor hybride omvormermodellen",
           "slave_id": "Modbus slave-/unit-id (standaard 1). Wijzig dit alleen wanneer een Modbus-proxy meerdere batterijen op één IP:poort koppelt met verschillende slave-id's.",
-          "serial_port": "Pad van de USB-RS485-adapter, bijv. /dev/ttyUSB0 of COM3. Vul dit in plaats van het IP-adres in om Modbus RTU via serieel te gebruiken; laat leeg voor TCP.",
-          "queued_gateway_compatibility": "Alleen voor Venus v2 via Modbus TCP. Voor gateways die verzoeken in een wachtrij plaatsen en vertraagd antwoorden: verzendt elk verzoek één keer met een breder antwoordvenster (geen nieuwe verzending met een nieuw transactie-ID) en herbevestigt het instelpunt bij elke regelcyclus zodat een verloren schrijfopdracht zichzelf herstelt. Laat uitgeschakeld voor directe verbindingen, Elfin EW11, seriële RTU en normale gateways."
+          "serial_port": "Pad van de USB-RS485-adapter, bijv. /dev/ttyUSB0 of COM3. Vul dit in plaats van het IP-adres in om Modbus RTU via serieel te gebruiken; laat leeg voor TCP."
         }
       },
       "battery_connection_zendure": {
@@ -1633,6 +1627,12 @@
       },
       "discharge_price_threshold": {
         "name": "Ontlaad-prijsondergrens"
+      },
+      "min_arbitrage_margin": {
+        "name": "Minimale arbitragemarge"
+      },
+      "round_trip_efficiency": {
+        "name": "Retourrendement"
       }
     },
     "button": {

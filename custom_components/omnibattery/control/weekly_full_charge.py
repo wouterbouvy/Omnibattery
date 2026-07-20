@@ -477,7 +477,9 @@ class WeeklyFullChargeManager:
 
         ctrl._weekly_charge_saved_max_soc.clear()
 
-        # Clear the normal top-charge pause so next week starts fresh.
+        # Clear the top-voltage latch so next week starts fresh.
+        if hasattr(ctrl, "_normal_balance_top_voltage_seen"):
+            ctrl._normal_balance_top_voltage_seen.clear()
         if hasattr(ctrl, "_normal_balance_pause_latch_soc"):
             ctrl._normal_balance_pause_latch_soc.clear()
         for coordinator in ctrl.coordinators:

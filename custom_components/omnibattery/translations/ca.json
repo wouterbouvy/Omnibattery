@@ -49,8 +49,7 @@
           "port": "Port Modbus",
           "slave_id": "ID d'esclau Modbus",
           "battery_version": "Model de bateria",
-          "serial_port": "Port sèrie (Modbus RTU)",
-          "queued_gateway_compatibility": "Compatibilitat Modbus heretada de MVEM (experimental)"
+          "serial_port": "Port sèrie (Modbus RTU)"
         },
         "data_description": {
           "name": "Nom descriptiu per identificar aquesta bateria",
@@ -58,8 +57,7 @@
           "port": "Port Modbus (normalment 502)",
           "slave_id": "ID d'esclau/unitat Modbus (per defecte 1). Canvia'l només si un proxy Modbus exposa diverses bateries a una mateixa IP:port amb IDs d'esclau diferents.",
           "battery_version": "Selecciona la versió del model de la teva bateria. Ev2 per a models antics, Ev3 per a models nous amb mapa de registres actualitzat, A (Venus A) o D (Venus D) per a models amb inversor híbrid",
-          "serial_port": "Ruta de l'adaptador USB-RS485, p. ex. /dev/ttyUSB0 o COM3. Omple-ho en lloc de l'adreça IP per utilitzar Modbus RTU per sèrie; deixa-ho buit per a TCP.",
-          "queued_gateway_compatibility": "Només per a Venus v2 mitjançant Modbus TCP. Per a passarel·les que encuen les peticions i responen amb retard: envia cada petició una sola vegada amb una finestra de resposta més àmplia (sense reenviament amb un ID de transacció nou) i reafirma la consigna a cada cicle de control perquè una escriptura perduda es recuperi sola. Deixa-ho desactivat per a connexions directes, Elfin EW11, RTU sèrie i passarel·les normals."
+          "serial_port": "Ruta de l'adaptador USB-RS485, p. ex. /dev/ttyUSB0 o COM3. Omple-ho en lloc de l'adreça IP per utilitzar Modbus RTU per sèrie; deixa-ho buit per a TCP."
         }
       },
       "battery_connection_zendure": {
@@ -458,8 +456,7 @@
           "port": "Port Modbus",
           "slave_id": "ID d'esclau Modbus",
           "battery_version": "Model de bateria",
-          "serial_port": "Port sèrie (Modbus RTU)",
-          "queued_gateway_compatibility": "Compatibilitat Modbus heretada de MVEM (experimental)"
+          "serial_port": "Port sèrie (Modbus RTU)"
         },
         "data_description": {
           "name": "Nom descriptiu per identificar aquesta bateria",
@@ -467,8 +464,7 @@
           "port": "Port Modbus (normalment 502)",
           "slave_id": "ID d'esclau/unitat Modbus (per defecte 1). Canvia'l només si un proxy Modbus exposa diverses bateries a una mateixa IP:port amb IDs d'esclau diferents.",
           "battery_version": "Selecciona la versió del teu model de bateria",
-          "serial_port": "Ruta de l'adaptador USB-RS485, p. ex. /dev/ttyUSB0 o COM3. Omple-ho en lloc de l'adreça IP per utilitzar Modbus RTU per sèrie; deixa-ho buit per a TCP.",
-          "queued_gateway_compatibility": "Només per a Venus v2 mitjançant Modbus TCP. Per a passarel·les que encuen les peticions i responen amb retard: envia cada petició una sola vegada amb una finestra de resposta més àmplia (sense reenviament amb un ID de transacció nou) i reafirma la consigna a cada cicle de control perquè una escriptura perduda es recuperi sola. Deixa-ho desactivat per a connexions directes, Elfin EW11, RTU sèrie i passarel·les normals."
+          "serial_port": "Ruta de l'adaptador USB-RS485, p. ex. /dev/ttyUSB0 o COM3. Omple-ho en lloc de l'adreça IP per utilitzar Modbus RTU per sèrie; deixa-ho buit per a TCP."
         }
       },
       "reconfigure_battery_zendure": {
@@ -591,8 +587,7 @@
           "port": "Port Modbus",
           "slave_id": "ID d'esclau Modbus",
           "battery_version": "Model de bateria",
-          "serial_port": "Port sèrie (Modbus RTU)",
-          "queued_gateway_compatibility": "Compatibilitat Modbus heretada de MVEM (experimental)"
+          "serial_port": "Port sèrie (Modbus RTU)"
         },
         "data_description": {
           "name": "Nom descriptiu per identificar aquesta bateria",
@@ -600,8 +595,7 @@
           "port": "Port Modbus (normalment 502)",
           "slave_id": "ID d'esclau/unitat Modbus (per defecte 1). Canvia'l només si un proxy Modbus exposa diverses bateries a una mateixa IP:port amb IDs d'esclau diferents.",
           "battery_version": "Selecciona la versió del model de la teva bateria. Ev2 per a models antics, Ev3 per a models nous amb mapa de registres actualitzat, A (Venus A) o D (Venus D) per a models d'inversor híbrid",
-          "serial_port": "Ruta de l'adaptador USB-RS485, p. ex. /dev/ttyUSB0 o COM3. Omple-ho en lloc de l'adreça IP per utilitzar Modbus RTU per sèrie; deixa-ho buit per a TCP.",
-          "queued_gateway_compatibility": "Només per a Venus v2 mitjançant Modbus TCP. Per a passarel·les que encuen les peticions i responen amb retard: envia cada petició una sola vegada amb una finestra de resposta més àmplia (sense reenviament amb un ID de transacció nou) i reafirma la consigna a cada cicle de control perquè una escriptura perduda es recuperi sola. Deixa-ho desactivat per a connexions directes, Elfin EW11, RTU sèrie i passarel·les normals."
+          "serial_port": "Ruta de l'adaptador USB-RS485, p. ex. /dev/ttyUSB0 o COM3. Omple-ho en lloc de l'adreça IP per utilitzar Modbus RTU per sèrie; deixa-ho buit per a TCP."
         }
       },
       "battery_connection_zendure": {
@@ -1633,6 +1627,12 @@
       },
       "discharge_price_threshold": {
         "name": "Preu mínim de descàrrega"
+      },
+      "min_arbitrage_margin": {
+        "name": "Marge mínim d'arbitratge"
+      },
+      "round_trip_efficiency": {
+        "name": "Eficiència de cicle complet"
       }
     },
     "button": {
