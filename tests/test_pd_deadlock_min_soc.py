@@ -19,7 +19,7 @@ The chain:
    ``0.0s/5.0s``.
 
 So the fix is in step 3, not in the latch: the settle timer must survive the
-stale freeze. The last test here is the end-to-end regression for that.
+stale freeze. The last zero-cross test reproduces that state sequence.
 
 Helpers are exercised unbound with a ``SimpleNamespace`` stub, per repo
 convention (see ``test_pd_zero_cross.py``).
@@ -30,6 +30,7 @@ import logging
 from datetime import timedelta
 from types import SimpleNamespace
 
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
 
 from custom_components.omnibattery import ChargeDischargeController
@@ -95,7 +96,7 @@ def test_stale_recalc_with_nonzero_frozen_command_is_unaffected():
 
 
 def test_flip_accumulates_across_stale_cycles_on_slow_sensor():
-    """The reported deadlock, end to end: 60 s sensor, 2 s control cycles.
+    """The reported zero-cross sequence: 60 s sensor, 2 s control cycles.
 
     Sample 1 arms the timer. The stale recalcs in between hold it. By the time the
     next fresh sample arrives the window is long satisfied, so the charge order
@@ -127,7 +128,10 @@ def _cadence_ctrl(*, max_stale_cycles=15, dt=2.0):
         dt=dt,
         _slow_sensor_warned=False,
         _slow_sensor_intervals=0,
+        _fast_sensor_intervals=0,
         consumption_sensor="sensor.grid_power",
+        config_entry=SimpleNamespace(entry_id="test-entry"),
+        hass=object(),
     )
 
 
@@ -135,24 +139,52 @@ def _cadence(ctrl, elapsed_s):
     ChargeDischargeController._check_sensor_cadence(ctrl, elapsed_s)
 
 
-def test_sustained_slow_cadence_warns_once(caplog):
+def _capture_repairs(monkeypatch):
+    created = []
+    deleted = []
+    monkeypatch.setattr(
+        ir,
+        "async_create_issue",
+        lambda *args, **kwargs: created.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        ir,
+        "async_delete_issue",
+        lambda *args, **kwargs: deleted.append((args, kwargs)),
+    )
+    return created, deleted
+
+
+def test_sustained_slow_cadence_warns_once_and_creates_repair(caplog, monkeypatch):
     ctrl = _cadence_ctrl()
+    created, _ = _capture_repairs(monkeypatch)
 
     with caplog.at_level(logging.WARNING):
         for _ in range(SLOW_SENSOR_WARN_INTERVALS + 3):
             _cadence(ctrl, 60.0)
 
-    assert caplog.text.count("slower than the 30s stale window") == 1
+    assert caplog.text.count("intervals of 10s or more are unsupported") == 1
     assert "sensor.grid_power" in caplog.text
+    assert len(created) == 1
+    args, kwargs = created[0]
+    assert args[2] == "slow_main_sensor_test-entry"
+    assert kwargs["severity"] is ir.IssueSeverity.ERROR
+    assert kwargs["translation_key"] == "slow_main_sensor"
+    assert kwargs["translation_placeholders"] == {
+        "sensor": "sensor.grid_power",
+        "observed_interval": "60",
+        "max_interval": "10",
+    }
 
 
-def test_single_outage_gap_does_not_warn(caplog):
+def test_single_outage_gap_does_not_warn(caplog, monkeypatch):
     """A sensor unavailable for minutes leaves one huge gap; that is not a slow sensor.
 
     ``_last_sensor_update_time`` is not advanced while the sensor reads unavailable,
     so the first sample after any downtime measures the whole outage.
     """
     ctrl = _cadence_ctrl()
+    created, _ = _capture_repairs(monkeypatch)
 
     with caplog.at_level(logging.WARNING):
         _cadence(ctrl, 1.0)
@@ -160,12 +192,14 @@ def test_single_outage_gap_does_not_warn(caplog):
         _cadence(ctrl, 1.0)
         _cadence(ctrl, 1.0)
 
-    assert "stale window" not in caplog.text
+    assert "unsupported" not in caplog.text
     assert ctrl._slow_sensor_intervals == 0
+    assert created == []
 
 
-def test_fast_interval_resets_the_streak(caplog):
+def test_fast_interval_resets_the_streak(caplog, monkeypatch):
     ctrl = _cadence_ctrl()
+    created, _ = _capture_repairs(monkeypatch)
 
     with caplog.at_level(logging.WARNING):
         for _ in range(SLOW_SENSOR_WARN_INTERVALS - 1):
@@ -174,7 +208,8 @@ def test_fast_interval_resets_the_streak(caplog):
         for _ in range(SLOW_SENSOR_WARN_INTERVALS - 1):
             _cadence(ctrl, 45.0)
 
-    assert "stale window" not in caplog.text
+    assert "unsupported" not in caplog.text
+    assert created == []
 
 
 def test_first_sample_without_a_previous_timestamp_is_ignored():
@@ -186,12 +221,44 @@ def test_first_sample_without_a_previous_timestamp_is_ignored():
     assert ctrl._slow_sensor_warned is False
 
 
-def test_window_follows_the_configured_loop_period(caplog):
-    """The window is _max_stale_cycles * dt, not a hardcoded 2 s cycle."""
-    ctrl = _cadence_ctrl(max_stale_cycles=15, dt=1.0)
+def test_watchdog_zero_intervals_do_not_reset_slow_streak(caplog, monkeypatch):
+    """Real 60 s samples are separated by many elapsed=0 watchdog ticks."""
+    ctrl = _cadence_ctrl()
+    created, _ = _capture_repairs(monkeypatch)
 
     with caplog.at_level(logging.WARNING):
         for _ in range(SLOW_SENSOR_WARN_INTERVALS):
-            _cadence(ctrl, 20.0)  # under 30s, over 15s
+            _cadence(ctrl, 60.0)
+            for _ in range(29):
+                _cadence(ctrl, 0.0)
 
-    assert "slower than the 15s stale window" in caplog.text
+    assert len(created) == 1
+    assert "intervals of 10s or more are unsupported" in caplog.text
+
+
+def test_compatibility_threshold_is_independent_of_watchdog(caplog, monkeypatch):
+    """A 12 s sensor is unsupported even though it is below the 30 s watchdog."""
+    ctrl = _cadence_ctrl(max_stale_cycles=15, dt=2.0)
+    created, _ = _capture_repairs(monkeypatch)
+
+    with caplog.at_level(logging.WARNING):
+        for _ in range(SLOW_SENSOR_WARN_INTERVALS):
+            _cadence(ctrl, 12.0)
+
+    assert len(created) == 1
+    assert "intervals of 10s or more are unsupported" in caplog.text
+
+
+def test_repair_clears_after_sustained_supported_cadence(monkeypatch):
+    ctrl = _cadence_ctrl()
+    created, deleted = _capture_repairs(monkeypatch)
+
+    for _ in range(SLOW_SENSOR_WARN_INTERVALS):
+        _cadence(ctrl, 60.0)
+    for _ in range(SLOW_SENSOR_WARN_INTERVALS + 3):
+        _cadence(ctrl, 2.0)
+
+    assert len(created) == 1
+    assert len(deleted) == 1
+    assert deleted[-1][0][2] == "slow_main_sensor_test-entry"
+    assert ctrl._slow_sensor_warned is False

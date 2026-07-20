@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform, CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.event import async_track_time_interval, async_track_time_change, async_track_state_change_event, async_call_later
 from homeassistant.util import dt as dt_util
@@ -143,6 +144,7 @@ from .const import (
     FEEDFORWARD_COOLDOWN_S,
     FEEDFORWARD_PULSE_GUARD_S,
     PD_ZERO_CROSS_MIN_HOLD_S,
+    MAX_SUPPORTED_SENSOR_INTERVAL_S,
     SLOW_SENSOR_WARN_INTERVALS,
     FAST_ACTUATOR_MAX_LATENCY_S,
     DISCHARGE_ENGAGE_GRACE_S,
@@ -460,8 +462,9 @@ class ChargeDischargeController:
         self._max_stale_cycles = 15             # safety valve: ~30s before forcing recalculation
         self._control_lock = asyncio.Lock()     # serialize control cycle across timer + sensor-event triggers
         self._grid_at_min_soc_last_ts = None     # last accumulation timestamp for grid-at-min-soc kWh integration
-        self._slow_sensor_warned = False        # one-shot warning: sensor cadence exceeds the stale window
-        self._slow_sensor_intervals = 0         # consecutive sensor intervals longer than the stale window
+        self._slow_sensor_warned = False        # one-shot warning/repair for unsupported sensor cadence
+        self._slow_sensor_intervals = 0         # consecutive unsupported sensor intervals
+        self._fast_sensor_intervals = 0         # consecutive supported intervals used to clear the repair
 
         # Normal high-SOC charge protection. These must exist before the first
         # capacity calculation because _battery_power_limit() reads them.
@@ -4402,33 +4405,56 @@ class ChargeDischargeController:
         return 0
 
     def _check_sensor_cadence(self, sensor_elapsed_s):
-        """Warn once when the main sensor updates slower than the stale window.
+        """Raise a repair when the main sensor cadence is unsupported.
 
-        A sensor slower than the watchdog means most control cycles run on frozen data
-        and the PD only ever sees one fresh sample per sensor period. That is a silent
-        misconfiguration today (HA's ``enphase_envoy`` is hard-capped at a 60s scan
-        interval), visible only as a poor control-quality metric.
+        Sensor compatibility is deliberately independent from the stale watchdog:
+        the former is a control-quality contract, while the latter rechecks structural
+        state after an unexpected telemetry outage. Only positive, real update intervals
+        reach the debounce; watchdog ticks report 0 and must not reset its streak.
 
         Debounced over consecutive intervals: a single long gap is far more likely to be
         an outage or a restart than the configured cadence, because the stored sensor
         timestamp is not advanced while the sensor reads unavailable, so the first sample
         after any downtime measures the whole gap.
         """
-        if sensor_elapsed_s is None:
+        if sensor_elapsed_s is None or sensor_elapsed_s <= 0:
             return
-        stale_window_s = self._max_stale_cycles * self.dt
-        if sensor_elapsed_s <= stale_window_s:
+
+        issue_id = f"slow_main_sensor_{self.config_entry.entry_id}"
+        if sensor_elapsed_s < MAX_SUPPORTED_SENSOR_INTERVAL_S:
             self._slow_sensor_intervals = 0
+            self._fast_sensor_intervals += 1
+            if self._fast_sensor_intervals == SLOW_SENSOR_WARN_INTERVALS:
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+                self._slow_sensor_warned = False
             return
+
+        self._fast_sensor_intervals = 0
         self._slow_sensor_intervals += 1
         if self._slow_sensor_intervals < SLOW_SENSOR_WARN_INTERVALS or self._slow_sensor_warned:
             return
         self._slow_sensor_warned = True
         _LOGGER.warning(
-            "Main sensor %s updates every ~%.0fs, slower than the %.0fs stale window. "
-            "The control loop will spend most cycles on frozen data and regulation "
-            "quality will suffer. Configure a faster grid power sensor (~1-5s).",
-            self.consumption_sensor, sensor_elapsed_s, stale_window_s,
+            "Main sensor %s updates every ~%.0fs; intervals of %.0fs or more are "
+            "unsupported. Configure a faster grid power sensor (~1-2s recommended).",
+            self.consumption_sensor,
+            sensor_elapsed_s,
+            MAX_SUPPORTED_SENSOR_INTERVAL_S,
+        )
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            is_persistent=True,
+            issue_domain=DOMAIN,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="slow_main_sensor",
+            translation_placeholders={
+                "sensor": self.consumption_sensor,
+                "observed_interval": f"{sensor_elapsed_s:.0f}",
+                "max_interval": f"{MAX_SUPPORTED_SENSOR_INTERVAL_S:.0f}",
+            },
         )
 
     async def _run_control_cycle(self, now=None):
@@ -4570,7 +4596,11 @@ class ChargeDischargeController:
             if previous_update_time is not None else None
         )
 
-        self._check_sensor_cadence(sensor_elapsed_s)
+        # Watchdog ticks have elapsed=0 and are not cadence observations. Feeding
+        # them into the debounce reset the slow streak between every pair of real
+        # samples, so a 60 s sensor could never reach the warning threshold.
+        if not is_stale:
+            self._check_sensor_cadence(sensor_elapsed_s)
 
         # Generic safety recalc on a silent sensor must re-evaluate structural state
         # (SOC/limits/blockers) but must NOT integrate the P term: the grid error is
