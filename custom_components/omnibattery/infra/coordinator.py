@@ -95,7 +95,6 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
                  brand: str = "marstek",
                  zendure_model: str = ZENDURE_MODEL_2400AC_PRO,
                  serial_port: str | None = None,
-                 queued_gateway_compatibility: bool = False,
                  esphome_device_id: str | None = None) -> None:
         """Initialize the data update coordinator."""
         super().__init__(
@@ -255,18 +254,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
                 max_charge_power_w=self.max_charge_power,
                 max_discharge_power_w=self.max_discharge_power,
                 serial_port=self.serial_port,
-                queued_gateway_compatibility=queued_gateway_compatibility,
             )
-
-        # Effective queued-gateway mode (mirrors the transport client's own
-        # narrowing: Marstek Modbus TCP only — v3-family and serial are excluded;
-        # non-Marstek drivers expose no such flag). Drives the control loop's
-        # re-assert-every-cycle so a dropped write on a lossy queueing gateway
-        # self-heals like the legacy MVEM path instead of skip-if-unchanged
-        # starving it (issue #77).
-        self.queued_gateway_compatibility = bool(
-            getattr(self.driver, "queued_gateway_compatibility", False)
-        )
 
         # Fast key -> definition lookup so the poll loop can scale each raw value by
         # its definition's scale/precision/state_class. The driver returns raw

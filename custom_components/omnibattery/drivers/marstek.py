@@ -162,7 +162,6 @@ class MarstekModbusDriver(BatteryDriver):
         definitions: Optional[list[dict]] = None,
         client: Optional[MarstekModbusClient] = None,
         serial_port: Optional[str] = None,
-        queued_gateway_compatibility: bool = False,
     ) -> None:
         """Build the driver.
 
@@ -188,7 +187,6 @@ class MarstekModbusDriver(BatteryDriver):
                 is_v3=self._is_v3_family,
                 slave_id=slave_id,
                 serial_port=serial_port,
-                queued_gateway_compatibility=queued_gateway_compatibility,
             )
         self._client = client
 
@@ -273,11 +271,6 @@ class MarstekModbusDriver(BatteryDriver):
     @property
     def capabilities(self) -> DriverCapabilities:
         return self._capabilities
-
-    @property
-    def queued_gateway_compatibility(self) -> bool:
-        """Whether the transport client runs in narrowed queued-gateway mode."""
-        return self._client.queued_gateway_compatibility
 
     _MODEL_LABELS: dict[str, str] = {
         "v2": "Venus E v2",
@@ -692,7 +685,7 @@ class MarstekModbusDriver(BatteryDriver):
         return value == _RS485_ENABLE
 
     @classmethod
-    async def probe(cls, host: str, port: int, version: str, slave_id: int = 1, serial_port: Optional[str] = None, queued_gateway_compatibility: bool = False) -> bool:
+    async def probe(cls, host: str, port: int, version: str, slave_id: int = 1, serial_port: Optional[str] = None) -> bool:
         """Test whether a Marstek battery responds for this version.
 
         Creates a temporary client, reads the SOC register, then tears it down.
@@ -711,7 +704,6 @@ class MarstekModbusDriver(BatteryDriver):
             is_v3=version in _V3_FAMILY,
             slave_id=slave_id,
             serial_port=serial_port,
-            queued_gateway_compatibility=queued_gateway_compatibility,
         )
         try:
             if not await client.async_connect():

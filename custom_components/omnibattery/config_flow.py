@@ -56,7 +56,6 @@ from .const import (
     CONF_SLAVE_ID,
     DEFAULT_SLAVE_ID,
     CONF_SERIAL_PORT,
-    CONF_QUEUED_GATEWAY_COMPATIBILITY,
     DEFAULT_VERSION,
     MAX_POWER_BY_VERSION,
     CONF_ENABLE_SYSTEM_POWER_LIMITS,
@@ -488,7 +487,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
         slave_id: int = DEFAULT_SLAVE_ID,
         brand: str = "marstek",
         serial_port: str | None = None,
-        queued_gateway_compatibility: bool = False,
     ) -> bool:
         """Test connection to a battery."""
         if brand == "zendure":
@@ -496,17 +494,10 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
             result, _ = await ZendureLocalDriver.probe(host, port)
         elif serial_port:
             _LOGGER.info("Probing Marstek %s over serial %s slave %s", version, serial_port, slave_id)
-            result = await MarstekModbusDriver.probe(
-                host, port, version, slave_id,
-                serial_port=serial_port,
-                queued_gateway_compatibility=queued_gateway_compatibility,
-            )
+            result = await MarstekModbusDriver.probe(host, port, version, slave_id, serial_port=serial_port)
         else:
             _LOGGER.info("Probing Marstek %s at %s:%s slave %s", version, host, port, slave_id)
-            result = await MarstekModbusDriver.probe(
-                host, port, version, slave_id,
-                queued_gateway_compatibility=queued_gateway_compatibility,
-            )
+            result = await MarstekModbusDriver.probe(host, port, version, slave_id)
         if not result:
             _LOGGER.error("Failed to connect to %s:%s (brand=%s)", host, port, brand)
         return result
@@ -688,9 +679,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
             battery_version = user_input.get(CONF_BATTERY_VERSION, DEFAULT_VERSION)
             slave_id = user_input.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
             serial_port = (user_input.get(CONF_SERIAL_PORT) or "").strip()
-            queued_gateway_compatibility = bool(
-                user_input.get(CONF_QUEUED_GATEWAY_COMPATIBILITY, False)
-            )
             host = (user_input.get(CONF_HOST) or "").strip()
             is_serial = bool(serial_port)
 
@@ -713,7 +701,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                     slave_id,
                     brand="marstek",
                     serial_port=serial_port or None,
-                    queued_gateway_compatibility=queued_gateway_compatibility,
                 )
                 if not connection_result:
                     errors["base"] = "cannot_connect"
@@ -725,7 +712,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                         CONF_SERIAL_PORT: serial_port,
                         CONF_SLAVE_ID: slave_id,
                         CONF_BATTERY_VERSION: battery_version,
-                        CONF_QUEUED_GATEWAY_COMPATIBILITY: queued_gateway_compatibility,
                         "brand": "marstek",
                     })
                     return await self.async_step_battery_limits()
@@ -738,9 +724,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                     vol.Optional(CONF_HOST): str,
                     vol.Optional(CONF_PORT, default=502): int,
                     vol.Optional(CONF_SERIAL_PORT): str,
-                    vol.Optional(
-                        CONF_QUEUED_GATEWAY_COMPATIBILITY, default=False
-                    ): BooleanSelector(),
                     vol.Required(CONF_SLAVE_ID, default=DEFAULT_SLAVE_ID):
                         vol.All(NumberSelector(NumberSelectorConfig(min=1, max=247, step=1, mode=NumberSelectorMode.BOX)), vol.Coerce(int)),
                     vol.Required(CONF_BATTERY_VERSION, default=DEFAULT_VERSION):
@@ -1535,9 +1518,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
             battery_version = user_input.get(CONF_BATTERY_VERSION, DEFAULT_VERSION)
             slave_id = user_input.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
             serial_port = (user_input.get(CONF_SERIAL_PORT) or "").strip()
-            queued_gateway_compatibility = bool(
-                user_input.get(CONF_QUEUED_GATEWAY_COMPATIBILITY, False)
-            )
             new_host = (user_input.get(CONF_HOST) or "").strip()
             is_serial = bool(serial_port)
 
@@ -1552,7 +1532,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
             elif not await self._test_connection(
                 new_host, new_port, battery_version, slave_id,
                 serial_port=serial_port or None,
-                queued_gateway_compatibility=queued_gateway_compatibility,
             ):
                 errors["base"] = "cannot_connect"
             else:
@@ -1576,7 +1555,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                 updated[CONF_SERIAL_PORT] = serial_port
                 updated[CONF_SLAVE_ID] = slave_id
                 updated[CONF_BATTERY_VERSION] = battery_version
-                updated[CONF_QUEUED_GATEWAY_COMPATIBILITY] = queued_gateway_compatibility
                 self._reconfigure_batteries.append(updated)
                 self.battery_index += 1
 
@@ -1594,9 +1572,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
             CONF_SERIAL_PORT: current.get(CONF_SERIAL_PORT, ""),
             CONF_SLAVE_ID: current.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID),
             CONF_BATTERY_VERSION: current.get(CONF_BATTERY_VERSION, DEFAULT_VERSION),
-            CONF_QUEUED_GATEWAY_COMPATIBILITY: current.get(
-                CONF_QUEUED_GATEWAY_COMPATIBILITY, False
-            ),
         }
         # A serial battery stores its path in CONF_HOST too; don't prefill the IP
         # field with the device path.
@@ -1610,10 +1585,6 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                     vol.Optional(CONF_HOST, default=host_default): str,
                     vol.Optional(CONF_PORT, default=defaults[CONF_PORT]): int,
                     vol.Optional(CONF_SERIAL_PORT, default=defaults[CONF_SERIAL_PORT]): str,
-                    vol.Optional(
-                        CONF_QUEUED_GATEWAY_COMPATIBILITY,
-                        default=defaults[CONF_QUEUED_GATEWAY_COMPATIBILITY],
-                    ): BooleanSelector(),
                     vol.Required(CONF_SLAVE_ID, default=defaults[CONF_SLAVE_ID]):
                         vol.All(NumberSelector(NumberSelectorConfig(min=1, max=247, step=1, mode=NumberSelectorMode.BOX)), vol.Coerce(int)),
                     vol.Required(
@@ -1790,7 +1761,6 @@ class OptionsFlowHandler(OptionsFlow):
         slave_id: int = DEFAULT_SLAVE_ID,
         brand: str = "marstek",
         serial_port: str | None = None,
-        queued_gateway_compatibility: bool = False,
     ) -> bool:
         """Test connection to a battery.
 
@@ -1821,11 +1791,7 @@ class OptionsFlowHandler(OptionsFlow):
             async with existing_coordinator.lock:
                 await existing_coordinator.driver.close()
                 await asyncio.sleep(0.5)
-                result = await MarstekModbusDriver.probe(
-                    host, port, version, slave_id,
-                    serial_port=serial_port,
-                    queued_gateway_compatibility=queued_gateway_compatibility,
-                )
+                result = await MarstekModbusDriver.probe(host, port, version, slave_id, serial_port=serial_port)
                 await asyncio.sleep(0.3)
                 await existing_coordinator.driver.connect()
                 if result:
@@ -1835,11 +1801,7 @@ class OptionsFlowHandler(OptionsFlow):
                 return result
         else:
             _LOGGER.info("No existing coordinator for %s - opening new connection", host)
-            return await MarstekModbusDriver.probe(
-                host, port, version, slave_id,
-                serial_port=serial_port,
-                queued_gateway_compatibility=queued_gateway_compatibility,
-            )
+            return await MarstekModbusDriver.probe(host, port, version, slave_id, serial_port=serial_port)
 
     async def _save_and_finish(self) -> FlowResult:
         """Merge config_data into existing entry data, save, and reload."""
@@ -2013,9 +1975,6 @@ class OptionsFlowHandler(OptionsFlow):
                 battery_version = user_input.get(CONF_BATTERY_VERSION, DEFAULT_VERSION)
                 slave_id = user_input.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
                 serial_port = (user_input.get(CONF_SERIAL_PORT) or "").strip()
-                queued_gateway_compatibility = bool(
-                    user_input.get(CONF_QUEUED_GATEWAY_COMPATIBILITY, False)
-                )
                 host = (user_input.get(CONF_HOST) or "").strip()
                 is_serial = bool(serial_port)
 
@@ -2031,7 +1990,6 @@ class OptionsFlowHandler(OptionsFlow):
                 elif not await self._test_connection(
                     host, port, battery_version, slave_id,
                     brand="marstek", serial_port=serial_port or None,
-                    queued_gateway_compatibility=queued_gateway_compatibility,
                 ):
                     errors["base"] = "cannot_connect"
                 else:
@@ -2042,7 +2000,6 @@ class OptionsFlowHandler(OptionsFlow):
                         CONF_SERIAL_PORT: serial_port,
                         CONF_SLAVE_ID: slave_id,
                         CONF_BATTERY_VERSION: battery_version,
-                        CONF_QUEUED_GATEWAY_COMPATIBILITY: queued_gateway_compatibility,
                         "brand": "marstek",
                     })
                     return await self.async_step_battery_limits()
@@ -2056,9 +2013,6 @@ class OptionsFlowHandler(OptionsFlow):
                     CONF_SERIAL_PORT: current_battery.get(CONF_SERIAL_PORT, ""),
                     CONF_SLAVE_ID: current_battery.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID),
                     CONF_BATTERY_VERSION: current_battery.get(CONF_BATTERY_VERSION, DEFAULT_VERSION),
-                    CONF_QUEUED_GATEWAY_COMPATIBILITY: current_battery.get(
-                        CONF_QUEUED_GATEWAY_COMPATIBILITY, False
-                    ),
                 }
             else:
                 defaults = {
@@ -2068,7 +2022,6 @@ class OptionsFlowHandler(OptionsFlow):
                     CONF_SERIAL_PORT: "",
                     CONF_SLAVE_ID: DEFAULT_SLAVE_ID,
                     CONF_BATTERY_VERSION: DEFAULT_VERSION,
-                    CONF_QUEUED_GATEWAY_COMPATIBILITY: False,
                 }
         except Exception as e:
             _LOGGER.error("Error in options flow battery_connection step: %s", e, exc_info=True)
@@ -2086,10 +2039,6 @@ class OptionsFlowHandler(OptionsFlow):
                     vol.Optional(CONF_HOST, default=host_default): str,
                     vol.Optional(CONF_PORT, default=defaults[CONF_PORT]): int,
                     vol.Optional(CONF_SERIAL_PORT, default=defaults[CONF_SERIAL_PORT]): str,
-                    vol.Optional(
-                        CONF_QUEUED_GATEWAY_COMPATIBILITY,
-                        default=defaults[CONF_QUEUED_GATEWAY_COMPATIBILITY],
-                    ): BooleanSelector(),
                     vol.Required(CONF_SLAVE_ID, default=defaults[CONF_SLAVE_ID]):
                         vol.All(NumberSelector(NumberSelectorConfig(min=1, max=247, step=1, mode=NumberSelectorMode.BOX)), vol.Coerce(int)),
                     vol.Required(CONF_BATTERY_VERSION, default=defaults[CONF_BATTERY_VERSION]):
