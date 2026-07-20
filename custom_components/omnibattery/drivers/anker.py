@@ -98,7 +98,7 @@ SENSOR_DEFINITIONS: list[dict] = [
      "device_class": "power", "state_class": "measurement", "scale": 1, "precision": 0,
      "scan_interval": "high", "enabled_by_default": True},
     {"key": "temperature", "name": "Temperature", "unit": "°C",
-     "device_class": "temperature", "state_class": "measurement", "scale": 1, "precision": 0,
+     "device_class": "temperature", "state_class": "measurement", "scale": 0.1, "precision": 1,
      "scan_interval": "low", "enabled_by_default": True},
     {"key": "battery_status", "name": "Battery Status", "unit": None,
      "device_class": None, "state_class": None, "scale": 1, "precision": 0,

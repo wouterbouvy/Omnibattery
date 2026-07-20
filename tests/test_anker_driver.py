@@ -84,6 +84,8 @@ def test_status_and_mode_sensors_have_state_maps():
     assert by_key["battery_status"]["states"][1] == "Charging"
     assert by_key["battery_status"]["states"][2] == "Discharging"
     assert by_key["operating_mode"]["states"][3] == "Third-Party Control"
+    # Register 10156 reports tenths of a degree (340 → 34.0 °C).
+    assert by_key["temperature"]["scale"] == 0.1
 
 
 def test_encode_int32_roundtrip():
