@@ -348,7 +348,8 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         Anker exposes 10038 as a read-only sensor (no soft-max entity). Zendure
         exposes inverse_max_power as a writable number, so it reports False.
         """
-        if any(d["key"] == "max_discharge_power" for d in self.number_definitions):
+        writable_keys = {d["key"] for d in self.number_definitions}
+        if {"max_discharge_power", "inverse_max_power"} & writable_keys:
             return False
         if any(d["key"] == "max_discharge_power" for d in self.sensor_definitions):
             return False
@@ -438,7 +439,10 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
                 # Skip if the user explicitly disabled RS485 via the switch.
                 # Already inside self.lock, so call the driver directly (the
                 # set_rs485_control wrapper would re-acquire the lock and deadlock).
-                if not self.rs485_user_disabled:
+                if (
+                    self.capabilities.has_rs485_control
+                    and not self.rs485_user_disabled
+                ):
                     if await self.driver.set_rs485_control(True):
                         _LOGGER.info("[%s] RS485 control mode re-enabled after reconnection", self.name)
                     else:

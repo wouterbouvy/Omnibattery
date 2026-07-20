@@ -253,6 +253,25 @@ async def test_net_power_from_data_uses_applied_echo():
     assert drv.net_power_from_data(result.applied) == -400
 
 
+@pytest.mark.asyncio
+async def test_net_power_from_data_rejects_stale_echo_after_reconnect():
+    client = _fake_client()
+    drv = _driver(client=client)
+    result = await drv.apply_setpoint(-400)
+
+    assert await drv.connect() is True
+    assert drv.net_power_from_data(result.applied) is None
+
+
+@pytest.mark.asyncio
+async def test_net_power_from_data_rejects_echo_outside_third_party_mode():
+    drv = _driver()
+    result = await drv.apply_setpoint(400)
+    result.applied["operating_mode"] = 0
+
+    assert drv.net_power_from_data(result.applied) is None
+
+
 # ----------------------------------------------------------------------
 # SOC limits
 # ----------------------------------------------------------------------

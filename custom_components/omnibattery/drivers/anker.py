@@ -295,6 +295,10 @@ class AnkerModbusDriver(BatteryDriver):
         ok = await self._client.async_connect()
         if not ok:
             return False
+        # Register 10071 is write-only. A new connection may mean the battery
+        # restarted and lost the previous command, so do not expose its stale
+        # in-memory echo as observable device state.
+        self._last_net_power_w = None
         self._client.unit_id = self._slave_id
         mode_ok = await self._ensure_third_party_mode()
         if not mode_ok:
@@ -456,6 +460,12 @@ class AnkerModbusDriver(BatteryDriver):
         return await self._client.async_write_register(address, int(value))
 
     def net_power_from_data(self, data: dict) -> Optional[int]:
+        try:
+            mode = int(round(float(data["operating_mode"])))
+        except (KeyError, TypeError, ValueError):
+            return None
+        if mode != _OPERATING_MODE_THIRD_PARTY or self._last_net_power_w is None:
+            return None
         value = data.get("commanded_net_power")
         if value is None:
             return self._last_net_power_w

@@ -5571,6 +5571,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+def _device_owns_initial_config(brand: str) -> bool:
+    """Return whether setup must preserve configuration stored by the device."""
+    return brand == "zendure"
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Omnibattery from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -5748,7 +5753,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 # device-set values on every restart and re-arm the full-charge
                 # taper/hysteresis machinery. The device is the source of truth and
                 # the coordinator syncs soc_set/min_soc back from the poll.
-                if coordinator.needs_software_manual_control:
+                if _device_owns_initial_config(coordinator.brand):
                     _LOGGER.info("Skipping initial SOC config write for %s (registerless driver; device flash holds the user values)",
                                battery_config[CONF_NAME])
                 else:
