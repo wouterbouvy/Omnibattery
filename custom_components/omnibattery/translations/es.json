@@ -1627,6 +1627,12 @@
       },
       "discharge_price_threshold": {
         "name": "Precio mínimo de descarga"
+      },
+      "min_arbitrage_margin": {
+        "name": "Margen mínimo de arbitraje"
+      },
+      "round_trip_efficiency": {
+        "name": "Eficiencia de ciclo completo"
       }
     },
     "button": {
