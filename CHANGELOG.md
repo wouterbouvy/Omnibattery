@@ -3,7 +3,8 @@
 ## [1.0.1b5] - 2026-07-20
 
 ### Added
-- **Optional minimum arbitrage margin for dynamic pricing** (#115): charging slots can now be filtered by the expected discharge price, a configurable round-trip efficiency and the required minimum margin, avoiding battery cycles whose price spread would not cover conversion losses. It is disabled by default and combines with the existing maximum charge-price threshold, with the stricter ceiling taking precedence; both new settings are available from the Control tab and evaluation notifications explain when the gate blocks charging.
+- **Optional minimum arbitrage margin for dynamic pricing** (#115): charging slots can now be filtered by the expected discharge price, a configurable round-trip efficiency and the required minimum margin, avoiding battery cycles whose price spread would not cover conversion losses. It is disabled by default and combines with the existing maximum charge-price threshold, with the stricter ceiling taking precedence; both new settings are available from the Control tab and evaluation notifications explain when the gate blocks charging. Thanks to @syphernl.
+- **Anker SOLIX Solarbank Max AC driver**: adds native Modbus TCP support for monitoring and controlling the Solarbank Max AC through the same Omnibattery control loop, dashboard and Home Assistant entities as the other supported batteries. Thanks to Wouter Bouvy.
 - **Daily charge/discharge energy for Anker Solarbank Max AC**: derives per-battery daily counters from the hardware lifetime totals, restores the current day's value across Home Assistant restarts and safely rebases if the device counter resets. System daily-energy aggregates and dashboard cards now receive real Anker values instead of falling back to zero.
 
 ### Changed
@@ -12,7 +13,7 @@
 
 ### Fixed
 - **Anker telemetry now satisfies the shared control contract**: `internal_temperature` aliases the device temperature so thermal derating works, `ac_power` is derived with the common sign convention so daily home energy includes the Solarbank, and `inverter_state` is normalized from battery status for BMS-cutoff and non-delivery diagnostics. Existing Anker sensor entity IDs remain available.
-- **PD could remain unable to charge at minimum SOC with a slow or temporarily stalled grid sensor** (#117): stale safety recalculations no longer erase an armed charge/discharge direction-flip timer. Grid sensors updating every 10 seconds or more are now explicitly unsupported in setup guidance and raise a Home Assistant Repairs issue after three consecutive slow intervals; the issue clears after the sensor returns to a supported cadence.
+- **PD could remain unable to charge at minimum SOC with a slow or temporarily stalled grid sensor** (#117): stale safety recalculations no longer erase an armed charge/discharge direction-flip timer. Grid sensors updating every 10 seconds or more are now explicitly unsupported in setup guidance and raise a Home Assistant Repairs issue after three consecutive slow intervals; the issue clears after the sensor returns to a supported cadence. Thanks to @syphernl.
 
 ## [1.0.1b4] - 2026-07-18
 
