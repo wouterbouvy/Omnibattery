@@ -1013,7 +1013,7 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                 }
             ),
             description_placeholders={
-                "description": "Configure time slots where batteries will NOT discharge (but can charge)"
+                "description": "Configure time slots that independently control when batteries may charge or discharge"
             },
         )
 

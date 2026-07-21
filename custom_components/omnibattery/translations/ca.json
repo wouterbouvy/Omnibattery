@@ -117,8 +117,8 @@
         }
       },
       "time_slots": {
-        "title": "Franges horàries d'operació",
-        "description": "Vols configurar franges horàries? Si configures franges, les bateries NOMÉS podran descarregar durant aquestes franges. Sense franges configurades, funcionen sempre.",
+        "title": "Franges horàries",
+        "description": "Vols configurar franges horàries? Cada franja pot controlar de manera independent quan les bateries poden carregar o descarregar. Sense franges configurades, funcionen sempre.",
         "data": {
           "configure_time_slots": "Configura franges horàries"
         }
@@ -283,7 +283,7 @@
           "price_sensor": "Sensor que proporciona preus horaris d'electricitat",
           "max_price_threshold": "Les hores per sobre d'aquest preu no seran seleccionades. Quan el control de descàrrega per preu està activat, aquest valor també s'usa com a llindar de descàrrega. Usa la mateixa unitat que el sensor: €/kWh per a Nordpool/PVPC, CHF/kWh per a CKW. Deixa buit per usar totes les hores i usar la mitjana diària com a llindar de descàrrega. Tret que configuris a sota un preu mínim de descàrrega per separat.",
           "discharge_price_threshold": "Llindar separat opcional per a la descàrrega per preu. La descàrrega es bloqueja mentre el preu sigui igual o inferior a aquest valor, obrint una banda neutra entre el preu màxim de càrrega (a dalt) i aquest mínim: en aquesta banda la bateria ni carrega de xarxa ni descarrega (la càrrega per excedent solar continua funcionant). Deixa-ho buit per reutilitzar el preu màxim per a tots dos (comportament actual d'un sol llindar).",
-          "dp_price_discharge_control": "Si està activat, la bateria només descarrega quan el preu elèctric actual supera el preu màxim configurat. Si no hi ha llindar configurat, usa el preu mitjà del dia calculat automàticament a partir del sensor de preus. Si hi ha franges de descàrrega configurades, ambdues condicions han de complir-se.",
+          "dp_price_discharge_control": "Si està activat, la bateria només descarrega quan el preu elèctric actual supera el preu màxim configurat. Si no hi ha llindar configurat, usa el preu mitjà del dia calculat automàticament a partir del sensor de preus. Si les franges horàries restringeixen la descàrrega, s'han de complir totes dues condicions.",
           "solar_forecast_sensor": "Sensor que proporciona la predicció de producció solar en kWh (ex: Solcast). Si tens panells solars, configura'l — el sistema només carregarà des de la xarxa quan la previsió solar sigui insuficient. Si no tens panells, deixa'l buit — el sistema carregarà quan la bateria no tingui energia suficient per al dia. No cal si ja has configurat aquest sensor al pas inicial: s'utilitzarà automàticament.",
           "predictive_safety_margin_kwh": "Energia addicional afegida a la previsió de consum abans de decidir si carregar. Útil quan la teva previsió solar tendeix a ser optimista. Posa 0 per desactivar (per defecte). Limitat a la capacitat total de la bateria.",
           "predictive_grid_charge_margin_pct": "Percentatge extra carregat des de la xarxa sobre el dèficit solar, per cobrir previsions solars optimistes. Ex.: una necessitat de 2 kWh de xarxa al 50% carrega 3 kWh. 0 per desactivar (per defecte). Limitat al marge fins al SOC màxim."
@@ -305,7 +305,7 @@
           "price_sensor": "Sensor l'estat del qual és el preu elèctric actual (ex: sensor.esios_pvpc, sensor.nordpool_kwh_es_eur_3_10_0). Funciona amb qualsevol sensor que exposi el preu del període actual com el seu estat.",
           "max_price_threshold": "La càrrega s'activa quan el preu actual és igual o inferior a aquest valor. Usa la mateixa unitat que el teu sensor (ex: €/kWh per a Nordpool/PVPC, CHF/kWh per a CKW). Deixa'l buit si uses el sensor de preu mitjà diari.",
           "average_price_sensor": "Si es configura, el seu valor s'usa com a llindar en lloc del valor fix anterior — útil quan la teva integració de preus ja exposa un preu mitjà diari. Deixa'l buit per usar el llindar fix.",
-          "rt_price_discharge_control": "Si està activat, la bateria només descarrega quan el preu elèctric actual supera el llindar (fix o preu mitjà diari). Si hi ha franges de descàrrega configurades, ambdues condicions han de complir-se.",
+          "rt_price_discharge_control": "Si està activat, la bateria només descarrega quan el preu elèctric actual supera el llindar (fix o preu mitjà diari). Si les franges horàries restringeixen la descàrrega, s'han de complir totes dues condicions.",
           "solar_forecast_sensor": "Sensor que proporciona la predicció de producció solar en kWh (ex: Solcast). Si tens panells solars, configura'l — el sistema només carregarà des de la xarxa quan la previsió solar sigui insuficient. No cal si ja has configurat aquest sensor al pas inicial: s'utilitzarà automàticament.",
           "predictive_safety_margin_kwh": "Energia addicional afegida a la previsió de consum abans de decidir si carregar. Útil quan la teva previsió solar tendeix a ser optimista. Posa 0 per desactivar (per defecte). Limitat a la capacitat total de la bateria.",
           "predictive_grid_charge_margin_pct": "Percentatge extra carregat des de la xarxa sobre el dèficit solar, per cobrir previsions solars optimistes. Ex.: una necessitat de 2 kWh de xarxa al 50% carrega 3 kWh. 0 per desactivar (per defecte). Limitat al marge fins al SOC màxim."
@@ -570,7 +570,7 @@
         "menu_options": {
           "sensors": "Sensors",
           "batteries": "Bateries",
-          "time_slots": "Franges de descàrrega",
+          "time_slots": "Franges horàries",
           "excluded_devices": "Dispositius exclosos",
           "predictive_charging": "Càrrega predictiva",
           "weekly_full_charge": "Càrrega completa setmanal",
@@ -687,8 +687,8 @@
         }
       },
       "time_slots": {
-        "title": "Franges horàries d'operació",
-        "description": "Vols reconfigurar les franges horàries? Si ho desmarques, s'eliminaran totes les franges (les bateries funcionaran sempre).",
+        "title": "Franges horàries",
+        "description": "Vols reconfigurar les franges horàries? Cada franja pot controlar la càrrega i la descàrrega de manera independent. Si ho desmarques, s'eliminaran totes les franges (les bateries funcionaran sempre).",
         "data": {
           "configure_time_slots": "Configurar franges horàries"
         }
@@ -853,7 +853,7 @@
           "price_sensor": "Sensor que proporciona preus horaris d'electricitat",
           "max_price_threshold": "Les hores per sobre d'aquest preu no seran seleccionades. Quan el control de descàrrega per preu està activat, aquest valor també s'usa com a llindar de descàrrega. Usa la mateixa unitat que el sensor: €/kWh per a Nordpool/PVPC, CHF/kWh per a CKW. Deixa buit per usar totes les hores i usar la mitjana diària com a llindar de descàrrega. Tret que configuris a sota un preu mínim de descàrrega per separat.",
           "discharge_price_threshold": "Llindar separat opcional per a la descàrrega per preu. La descàrrega es bloqueja mentre el preu sigui igual o inferior a aquest valor, obrint una banda neutra entre el preu màxim de càrrega (a dalt) i aquest mínim: en aquesta banda la bateria ni carrega de xarxa ni descarrega (la càrrega per excedent solar continua funcionant). Deixa-ho buit per reutilitzar el preu màxim per a tots dos (comportament actual d'un sol llindar).",
-          "dp_price_discharge_control": "Si està activat, la bateria només descarrega quan el preu elèctric actual supera el preu màxim configurat. Si no hi ha llindar configurat, usa el preu mitjà del dia calculat automàticament a partir del sensor de preus. Si hi ha franges de descàrrega configurades, ambdues condicions han de complir-se.",
+          "dp_price_discharge_control": "Si està activat, la bateria només descarrega quan el preu elèctric actual supera el preu màxim configurat. Si no hi ha llindar configurat, usa el preu mitjà del dia calculat automàticament a partir del sensor de preus. Si les franges horàries restringeixen la descàrrega, s'han de complir totes dues condicions.",
           "solar_forecast_sensor": "Sensor que proporciona la predicció de producció solar en kWh (ex: Solcast). Si tens panells solars, configura'l — el sistema només carregarà des de la xarxa quan la previsió solar sigui insuficient. Si no tens panells, deixa'l buit — el sistema carregarà quan la bateria no tingui energia suficient per al dia. No cal si ja has configurat aquest sensor al pas inicial: s'utilitzarà automàticament.",
           "predictive_safety_margin_kwh": "Energia addicional afegida a la previsió de consum abans de decidir si carregar. Útil quan la teva previsió solar tendeix a ser optimista. Posa 0 per desactivar (per defecte). Limitat a la capacitat total de la bateria.",
           "predictive_grid_charge_margin_pct": "Percentatge extra carregat des de la xarxa sobre el dèficit solar, per cobrir previsions solars optimistes. Ex.: una necessitat de 2 kWh de xarxa al 50% carrega 3 kWh. 0 per desactivar (per defecte). Limitat al marge fins al SOC màxim."
@@ -875,7 +875,7 @@
           "price_sensor": "Sensor l'estat del qual és el preu elèctric actual (ex: sensor.esios_pvpc, sensor.nordpool_kwh_es_eur_3_10_0). Funciona amb qualsevol sensor que exposi el preu del període actual com el seu estat.",
           "max_price_threshold": "La càrrega s'activa quan el preu actual és igual o inferior a aquest valor. Usa la mateixa unitat que el teu sensor (ex: €/kWh per a Nordpool/PVPC, CHF/kWh per a CKW). Deixa'l buit si uses el sensor de preu mitjà diari.",
           "average_price_sensor": "Si es configura, el seu valor s'usa com a llindar en lloc del valor fix anterior — útil quan la teva integració de preus ja exposa un preu mitjà diari. Deixa'l buit per usar el llindar fix.",
-          "rt_price_discharge_control": "Si està activat, la bateria només descarrega quan el preu elèctric actual supera el llindar (fix o preu mitjà diari). Si hi ha franges de descàrrega configurades, ambdues condicions han de complir-se.",
+          "rt_price_discharge_control": "Si està activat, la bateria només descarrega quan el preu elèctric actual supera el llindar (fix o preu mitjà diari). Si les franges horàries restringeixen la descàrrega, s'han de complir totes dues condicions.",
           "solar_forecast_sensor": "Sensor que proporciona la predicció de producció solar en kWh (ex: Solcast). Si tens panells solars, configura'l — el sistema només carregarà des de la xarxa quan la previsió solar sigui insuficient. No cal si ja has configurat aquest sensor al pas inicial: s'utilitzarà automàticament.",
           "predictive_safety_margin_kwh": "Energia addicional afegida a la previsió de consum abans de decidir si carregar. Útil quan la teva previsió solar tendeix a ser optimista. Posa 0 per desactivar (per defecte). Limitat a la capacitat total de la bateria.",
           "predictive_grid_charge_margin_pct": "Percentatge extra carregat des de la xarxa sobre el dèficit solar, per cobrir previsions solars optimistes. Ex.: una necessitat de 2 kWh de xarxa al 50% carrega 3 kWh. 0 per desactivar (per defecte). Limitat al marge fins al SOC màxim."

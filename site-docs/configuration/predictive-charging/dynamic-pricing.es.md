@@ -84,13 +84,13 @@ Ambos umbrales se exponen además como entidades `number` en vivo (**Umbral Máx
 
 ### Interacción con franjas horarias
 
-Si tienes franjas de descarga configuradas, **ambas condiciones deben cumplirse** para que la batería descargue:
+Si las franjas horarias están configuradas para restringir la descarga, **ambas condiciones deben cumplirse** para que la batería descargue:
 
 ```
-Descarga permitida = dentro_de_franja_horaria AND precio_actual > umbral
+Descarga permitida = dentro_de_franja_horaria_de_descarga AND precio_actual > umbral
 ```
 
-Fuera de la franja nunca descarga. Dentro de la franja, solo descarga si el precio es suficientemente alto.
+Fuera de una franja que permita la descarga, la batería nunca descarga. Dentro de ella, solo descarga si el precio es suficientemente alto.
 
 ### Efecto en el controlador PD
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.1b6] - 2026-07-21
+
+### Fixed
+- **Time-slot naming in the configuration and options flows**: renamed the section from "Discharge time slots" to "Time slots" because each slot can independently control both charging and discharging. Updated all six translations, dashboard help text, and the English and Spanish documentation to use the same terminology.
+
 ## [1.0.1b5] - 2026-07-20
 
 ### Added
