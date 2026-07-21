@@ -117,8 +117,8 @@
         }
       },
       "time_slots": {
-        "title": "Franjas horarias de operación",
-        "description": "¿Deseas configurar franjas horarias? Si configuras franjas, las baterías SOLO podrán descargar durante esas franjas. Sin franjas configuradas, funcionan siempre.",
+        "title": "Franjas horarias",
+        "description": "¿Deseas configurar franjas horarias? Cada franja puede controlar de forma independiente cuándo pueden cargar o descargar las baterías. Sin franjas configuradas, funcionan siempre.",
         "data": {
           "configure_time_slots": "Configurar franjas horarias"
         }
@@ -283,7 +283,7 @@
           "price_sensor": "Sensor que proporciona precios horarios de electricidad",
           "max_price_threshold": "Las horas por encima de este precio no serán seleccionadas. Cuando el control de descarga por precio está activado, este valor también se usa como umbral de descarga salvo que configures abajo un precio mínimo de descarga aparte. Usa la misma unidad que el sensor: €/kWh para Nordpool/PVPC, CHF/kWh para CKW. Deja vacío para usar todas las horas y usar la media diaria como umbral de descarga.",
           "discharge_price_threshold": "Umbral separado opcional para la descarga por precio. La descarga se bloquea mientras el precio sea igual o inferior a este valor, abriendo una banda neutra entre el precio máximo de carga (arriba) y este mínimo: en esa banda la batería ni carga de red ni descarga (la carga por excedente solar sigue funcionando). Déjalo vacío para reutilizar el precio máximo para ambos (comportamiento actual de umbral único).",
-          "dp_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el precio máximo configurado. Si no hay umbral configurado, usa el precio medio del día calculado automáticamente a partir del sensor de precios. Si hay franjas de descarga configuradas, ambas condiciones deben cumplirse.",
+          "dp_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el precio máximo configurado. Si no hay umbral configurado, usa el precio medio del día calculado automáticamente a partir del sensor de precios. Si las franjas horarias restringen la descarga, ambas condiciones deben cumplirse.",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. Si no tienes paneles, déjalo vacío — el sistema cargará cuando la batería no tenga energía suficiente para el día. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
           "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."
@@ -305,7 +305,7 @@
           "price_sensor": "Sensor cuyo estado es el precio eléctrico actual (ej: sensor.esios_pvpc, sensor.nordpool_kwh_es_eur_3_10_0). Funciona con cualquier sensor que exponga el precio del periodo actual como su estado.",
           "max_price_threshold": "La carga se activa cuando el precio actual es igual o inferior a este valor. Usa la misma unidad que tu sensor (ej: €/kWh para Nordpool/PVPC, CHF/kWh para CKW). Déjalo vacío si usas el sensor de precio medio diario.",
           "average_price_sensor": "Si se configura, su valor se usa como umbral en lugar del valor fijo anterior — útil cuando tu integración de precios ya expone un precio medio diario. Déjalo vacío para usar el umbral fijo.",
-          "rt_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el umbral (fijo o precio medio diario). Si hay franjas de descarga configuradas, ambas condiciones deben cumplirse.",
+          "rt_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el umbral (fijo o precio medio diario). Si las franjas horarias restringen la descarga, ambas condiciones deben cumplirse.",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
           "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."
@@ -570,7 +570,7 @@
         "menu_options": {
           "sensors": "Sensores",
           "batteries": "Baterías",
-          "time_slots": "Franjas de descarga",
+          "time_slots": "Franjas horarias",
           "excluded_devices": "Dispositivos excluidos",
           "predictive_charging": "Carga predictiva",
           "weekly_full_charge": "Carga completa semanal",
@@ -687,8 +687,8 @@
         }
       },
       "time_slots": {
-        "title": "Franjas horarias de operación",
-        "description": "¿Deseas reconfigurar las franjas horarias? Si lo desmarcas, se eliminarán todas las franjas (las baterías funcionarán siempre).",
+        "title": "Franjas horarias",
+        "description": "¿Deseas reconfigurar las franjas horarias? Cada franja puede controlar la carga y la descarga de forma independiente. Si lo desmarcas, se eliminarán todas las franjas (las baterías funcionarán siempre).",
         "data": {
           "configure_time_slots": "Configurar franjas horarias"
         }
@@ -853,7 +853,7 @@
           "price_sensor": "Sensor que proporciona precios horarios de electricidad",
           "max_price_threshold": "Las horas por encima de este precio no serán seleccionadas. Cuando el control de descarga por precio está activado, este valor también se usa como umbral de descarga salvo que configures abajo un precio mínimo de descarga aparte. Usa la misma unidad que el sensor: €/kWh para Nordpool/PVPC, CHF/kWh para CKW. Deja vacío para usar todas las horas y usar la media diaria como umbral de descarga.",
           "discharge_price_threshold": "Umbral separado opcional para la descarga por precio. La descarga se bloquea mientras el precio sea igual o inferior a este valor, abriendo una banda neutra entre el precio máximo de carga (arriba) y este mínimo: en esa banda la batería ni carga de red ni descarga (la carga por excedente solar sigue funcionando). Déjalo vacío para reutilizar el precio máximo para ambos (comportamiento actual de umbral único).",
-          "dp_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el precio máximo configurado. Si no hay umbral configurado, usa el precio medio del día calculado automáticamente a partir del sensor de precios. Si hay franjas de descarga configuradas, ambas condiciones deben cumplirse.",
+          "dp_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el precio máximo configurado. Si no hay umbral configurado, usa el precio medio del día calculado automáticamente a partir del sensor de precios. Si las franjas horarias restringen la descarga, ambas condiciones deben cumplirse.",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. Si no tienes paneles, déjalo vacío — el sistema cargará cuando la batería no tenga energía suficiente para el día. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
           "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."
@@ -875,7 +875,7 @@
           "price_sensor": "Sensor cuyo estado es el precio eléctrico actual (ej: sensor.esios_pvpc, sensor.nordpool_kwh_es_eur_3_10_0). Funciona con cualquier sensor que exponga el precio del periodo actual como su estado.",
           "max_price_threshold": "La carga se activa cuando el precio actual es igual o inferior a este valor. Usa la misma unidad que tu sensor (ej: €/kWh para Nordpool/PVPC, CHF/kWh para CKW). Déjalo vacío si usas el sensor de precio medio diario.",
           "average_price_sensor": "Si se configura, su valor se usa como umbral en lugar del valor fijo anterior — útil cuando tu integración de precios ya expone un precio medio diario. Déjalo vacío para usar el umbral fijo.",
-          "rt_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el umbral (fijo o precio medio diario). Si hay franjas de descarga configuradas, ambas condiciones deben cumplirse.",
+          "rt_price_discharge_control": "Si está activado, la batería solo descarga cuando el precio eléctrico actual supera el umbral (fijo o precio medio diario). Si las franjas horarias restringen la descarga, ambas condiciones deben cumplirse.",
           "solar_forecast_sensor": "Sensor que proporciona la predicción de producción solar en kWh (ej: Solcast). Si tienes paneles solares, configúralo — el sistema solo cargará desde la red cuando la previsión solar sea insuficiente. No es necesario si ya configuraste este sensor en el paso inicial: se usará automáticamente.",
           "predictive_safety_margin_kwh": "Energía adicional añadida a la previsión de consumo antes de decidir si cargar. Útil cuando tu previsión solar tiende a ser optimista. Pon 0 para desactivar (por defecto). Limitado a la capacidad total de la batería.",
           "predictive_grid_charge_margin_pct": "Porcentaje extra cargado desde la red sobre el déficit solar, para cubrir previsiones solares optimistas. Ej.: una necesidad de 2 kWh de red al 50% carga 3 kWh. 0 para desactivar (por defecto). Limitado al margen hasta el SOC máximo."

@@ -117,8 +117,8 @@
         }
       },
       "time_slots": {
-        "title": "Discharge time slots",
-        "description": "Do you want to configure time slots? If configured, batteries will ONLY discharge during these slots. Without slots, they operate at all times.",
+        "title": "Time slots",
+        "description": "Do you want to configure time slots? Each slot can independently control when batteries are allowed to charge or discharge. Without slots, they operate at all times.",
         "data": {
           "configure_time_slots": "Configure time slots"
         }
@@ -277,7 +277,7 @@
           "price_sensor": "Sensor providing electricity prices (e.g., sensor.nordpool_kwh_es_eur_3_10_0 for Nordpool, sensor.esios_pvpc for PVPC, or your CKW sensor for Switzerland)",
           "max_price_threshold": "Slots above this price will not be selected. When price-gated discharge is enabled, this value is also used as the discharge threshold unless a separate discharge floor is set below. Use the same unit as the sensor: €/kWh for Nordpool/PVPC, CHF/kWh for CKW. Leave empty to use all slots and use the daily average as the discharge threshold.",
           "discharge_price_threshold": "Optional separate floor for price-gated discharge. Discharge is blocked while the price is at or below this value, opening an idle band between the charge ceiling above and this floor: in that band the battery neither grid-charges nor discharges (solar-surplus charging still works). Leave empty to reuse the maximum price threshold for both (current single-threshold behavior).",
-          "dp_price_discharge_control": "When enabled, the battery only discharges when the current electricity price exceeds the configured maximum price threshold. If no threshold is configured, it uses today's average price computed automatically from the price sensor. If discharge time slots are configured, both conditions must be met.",
+          "dp_price_discharge_control": "When enabled, the battery only discharges when the current electricity price exceeds the configured maximum price threshold. If no threshold is configured, it uses today's average price computed automatically from the price sensor. If time slots restrict discharge, both conditions must be met.",
           "solar_forecast_sensor": "Sensor providing the solar production forecast in kWh (e.g., Solcast). If you have solar panels, configure this sensor — the system will only charge from the grid when solar forecast is insufficient. If you have no solar panels, leave this empty — the system will charge whenever battery energy is not enough for the day. Not required if you already configured this sensor in the initial setup step — it will be used automatically.",
           "predictive_safety_margin_kwh": "Extra energy buffer added to the consumption forecast before deciding whether to charge. Useful when your solar forecast tends to be optimistic. Set to 0 to disable (default). Capped at total battery capacity.",
           "predictive_grid_charge_margin_pct": "Extra % charged from the grid on top of the solar-deficit, to hedge against optimistic solar forecasts. E.g. a 2 kWh grid need at 50% charges 3 kWh. 0 to disable (default). Capped at the gap to max SOC."
@@ -299,7 +299,7 @@
           "price_sensor": "Sensor whose state is the current electricity price (e.g. sensor.esios_pvpc, sensor.nordpool_kwh_es_eur_3_10_0). Any sensor that exposes the current period price as its state works.",
           "max_price_threshold": "Charging activates when the current price is at or below this value. Use the same unit as your price sensor (e.g. €/kWh for Nordpool/PVPC, CHF/kWh for CKW). Leave empty if using the daily average sensor below.",
           "average_price_sensor": "If provided, this sensor's state is used as the threshold instead of the fixed value above — useful when your price integration already exposes a daily average. Leave empty to use the fixed threshold.",
-          "rt_price_discharge_control": "When enabled, the battery only discharges when the current electricity price exceeds the threshold (fixed or daily average). If discharge time slots are configured, both conditions must be met.",
+          "rt_price_discharge_control": "When enabled, the battery only discharges when the current electricity price exceeds the threshold (fixed or daily average). If time slots restrict discharge, both conditions must be met.",
           "solar_forecast_sensor": "Sensor providing the solar production forecast in kWh (e.g., Solcast). If you have solar panels, configure this sensor — the system will only charge from the grid when solar forecast is insufficient. Not required if you already configured this sensor in the initial setup step — it will be used automatically.",
           "predictive_safety_margin_kwh": "Extra energy buffer added to the consumption forecast before deciding whether to charge. Useful when your solar forecast tends to be optimistic. Set to 0 to disable (default). Capped at total battery capacity.",
           "predictive_grid_charge_margin_pct": "Extra % charged from the grid on top of the solar-deficit, to hedge against optimistic solar forecasts. E.g. a 2 kWh grid need at 50% charges 3 kWh. 0 to disable (default). Capped at the gap to max SOC."
@@ -564,7 +564,7 @@
         "menu_options": {
           "sensors": "Sensors",
           "batteries": "Batteries",
-          "time_slots": "Discharge time slots",
+          "time_slots": "Time slots",
           "excluded_devices": "Excluded devices",
           "predictive_charging": "Predictive charging",
           "weekly_full_charge": "Weekly full charge",
@@ -681,8 +681,8 @@
         }
       },
       "time_slots": {
-        "title": "Discharge time slots",
-        "description": "Do you want to reconfigure time slots? If unchecked, all slots will be removed (batteries will operate at all times).",
+        "title": "Time slots",
+        "description": "Do you want to reconfigure time slots? Each slot can independently control charge and discharge. If unchecked, all slots will be removed (batteries will operate at all times).",
         "data": {
           "configure_time_slots": "Configure time slots"
         }
@@ -841,7 +841,7 @@
           "price_sensor": "Sensor providing electricity prices (e.g., sensor.nordpool_kwh_es_eur_3_10_0 for Nordpool, sensor.esios_pvpc for PVPC, or your CKW sensor for Switzerland)",
           "max_price_threshold": "Slots above this price will not be selected. When price-gated discharge is enabled, this value is also used as the discharge threshold unless a separate discharge floor is set below. Use the same unit as the sensor: €/kWh for Nordpool/PVPC, CHF/kWh for CKW. Leave empty to use all slots and use the daily average as the discharge threshold.",
           "discharge_price_threshold": "Optional separate floor for price-gated discharge. Discharge is blocked while the price is at or below this value, opening an idle band between the charge ceiling above and this floor: in that band the battery neither grid-charges nor discharges (solar-surplus charging still works). Leave empty to reuse the maximum price threshold for both (current single-threshold behavior).",
-          "dp_price_discharge_control": "When enabled, the battery only discharges when the current electricity price exceeds the configured maximum price threshold. If no threshold is configured, it uses today's average price computed automatically from the price sensor. If discharge time slots are configured, both conditions must be met.",
+          "dp_price_discharge_control": "When enabled, the battery only discharges when the current electricity price exceeds the configured maximum price threshold. If no threshold is configured, it uses today's average price computed automatically from the price sensor. If time slots restrict discharge, both conditions must be met.",
           "solar_forecast_sensor": "Sensor providing the solar production forecast in kWh (e.g., Solcast). If you have solar panels, configure this sensor — the system will only charge from the grid when solar forecast is insufficient. If you have no solar panels, leave this empty — the system will charge whenever battery energy is not enough for the day. Not required if you already configured this sensor in the initial setup step — it will be used automatically.",
           "predictive_safety_margin_kwh": "Extra energy buffer added to the consumption forecast before deciding whether to charge. Useful when your solar forecast tends to be optimistic. Set to 0 to disable (default). Capped at total battery capacity.",
           "predictive_grid_charge_margin_pct": "Extra % charged from the grid on top of the solar-deficit, to hedge against optimistic solar forecasts. E.g. a 2 kWh grid need at 50% charges 3 kWh. 0 to disable (default). Capped at the gap to max SOC."
@@ -863,7 +863,7 @@
           "price_sensor": "Sensor whose state is the current electricity price (e.g. sensor.esios_pvpc, sensor.nordpool_kwh_es_eur_3_10_0). Any sensor that exposes the current period price as its state works.",
           "max_price_threshold": "Charging activates when the current price is at or below this value. Use the same unit as your price sensor (e.g. €/kWh for Nordpool/PVPC, CHF/kWh for CKW). Leave empty if using the daily average sensor below.",
           "average_price_sensor": "If provided, this sensor's state is used as the threshold instead of the fixed value above — useful when your price integration already exposes a daily average. Leave empty to use the fixed threshold.",
-          "rt_price_discharge_control": "When enabled, the battery only discharges when the current electricity price exceeds the threshold (fixed or daily average). If discharge time slots are configured, both conditions must be met.",
+          "rt_price_discharge_control": "When enabled, the battery only discharges when the current electricity price exceeds the threshold (fixed or daily average). If time slots restrict discharge, both conditions must be met.",
           "solar_forecast_sensor": "Sensor providing the solar production forecast in kWh (e.g., Solcast). If you have solar panels, configure this sensor — the system will only charge from the grid when solar forecast is insufficient. Not required if you already configured this sensor in the initial setup step — it will be used automatically.",
           "predictive_safety_margin_kwh": "Extra energy buffer added to the consumption forecast before deciding whether to charge. Useful when your solar forecast tends to be optimistic. Set to 0 to disable (default). Capped at total battery capacity.",
           "predictive_grid_charge_margin_pct": "Extra % charged from the grid on top of the solar-deficit, to hedge against optimistic solar forecasts. E.g. a 2 kWh grid need at 50% charges 3 kWh. 0 to disable (default). Capped at the gap to max SOC."

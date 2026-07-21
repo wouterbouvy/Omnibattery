@@ -104,13 +104,13 @@ Both are exposed as live `number` entities, and the evaluation notification repo
 
 ### Interaction with time slots
 
-If discharge time slots are configured, **both conditions must be met** for the battery to discharge:
+If time slots are configured to restrict discharge, **both conditions must be met** for the battery to discharge:
 
 ```
-Discharge allowed = within_time_slot AND current_price > threshold
+Discharge allowed = within_discharge_time_slot AND current_price > threshold
 ```
 
-Outside the slot the battery never discharges. Inside the slot, it only discharges when the price is high enough.
+Outside a slot that allows discharge, the battery never discharges. Inside one, it only discharges when the price is high enough.
 
 ### Effect on the PD controller
 
