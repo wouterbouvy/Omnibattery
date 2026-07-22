@@ -15,7 +15,7 @@ Automatically selects the **cheapest hours of the day** to cover the calculated 
     Selecting **Tibber** as the price integration leaves the *Electricity price sensor* field unused — the engine calls the `tibber.get_prices` service (today's prices, plus tomorrow's after ~13:00), caches the slots and refreshes hourly. The official Tibber integration must be configured in HA.
 
 !!! note "Official Nord Pool and HACS are selected the same way"
-    Select **Nordpool** and choose a price entity from the provider. A HACS sensor continues to be read from its `raw_today` / `raw_tomorrow` attributes. For an entity from Home Assistant's official Nord Pool integration, Omnibattery automatically resolves its market area, calls `nordpool.get_prices_for_date` for today, converts the returned currency/MWh values to currency/kWh, and refreshes the cache hourly. No separate provider option or template sensor is needed.
+    Select **Nordpool** and choose a price entity from the provider. A HACS sensor continues to be read from its `raw_today` / `raw_tomorrow` attributes. If that sensor has `price_in_cents: true`, Omnibattery automatically converts its slots and current price to major currency/kWh, so thresholds must still be entered in €/kWh (or the corresponding major currency), not cents. For an entity from Home Assistant's official Nord Pool integration, Omnibattery automatically resolves its market area, calls `nordpool.get_prices_for_date` for today, converts the returned currency/MWh values to currency/kWh, and refreshes the cache hourly. No separate provider option or template sensor is needed.
 
 ## Configuration
 

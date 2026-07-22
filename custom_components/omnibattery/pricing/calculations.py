@@ -15,12 +15,33 @@ from ..const import CHARGE_EFFICIENCY, DEFAULT_ROUND_TRIP_EFFICIENCY
 _LOGGER = logging.getLogger(__name__)
 
 
+def normalize_nordpool_hacs_price(value, attrs: dict) -> float:
+    """Return a HACS Nordpool price in major currency per kWh.
+
+    HACS applies its ``price_in_cents`` and ``unit`` configuration to the
+    sensor state and to every ``raw_today`` / ``raw_tomorrow`` value. Internal
+    Omnibattery thresholds use major currency/kWh, so undo those display-scale
+    transformations at the provider boundary.
+    """
+    price = float(value)
+    if attrs.get("price_in_cents") is True:
+        price /= 100.0
+
+    energy_unit = str(attrs.get("unit") or "kWh").lower()
+    if energy_unit == "mwh":
+        price /= 1000.0
+    elif energy_unit == "wh":
+        price *= 1000.0
+    return price
+
+
 def parse_nordpool_prices(attrs: dict) -> list:
     """Parse Nordpool / Energi Data Service price attributes.
 
     Expected format in raw_today / raw_tomorrow:
         [{"start": datetime, "end": datetime, "value": float}, ...]
-    Returns list[PriceSlot] in local time.
+    HACS display scaling (cents and MWh/Wh) is normalized to major
+    currency/kWh. Returns list[PriceSlot] in local time.
     """
     from homeassistant.util import dt as dt_util
 
@@ -39,7 +60,13 @@ def parse_nordpool_prices(attrs: dict) -> list:
                     start = dt_util.as_local(start).replace(tzinfo=None)
                 if hasattr(end, "tzinfo") and end.tzinfo is not None:
                     end = dt_util.as_local(end).replace(tzinfo=None)
-                slots.append(PriceSlot(start=start, end=end, price=float(value)))
+                slots.append(
+                    PriceSlot(
+                        start=start,
+                        end=end,
+                        price=normalize_nordpool_hacs_price(value, attrs),
+                    )
+                )
             except Exception as exc:
                 _LOGGER.debug("Dynamic pricing: failed to parse Nordpool entry %s: %s", entry, exc)
     return slots

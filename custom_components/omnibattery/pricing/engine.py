@@ -115,6 +115,15 @@ class PricingManager:
         if states is not None and self._controller.price_sensor:
             state = states.get(self._controller.price_sensor)
             if state is not None:
+                if (
+                    self._controller.price_integration_type
+                    == PRICE_INTEGRATION_NORDPOOL
+                    and "raw_today" in state.attributes
+                ):
+                    # HACS may expose cents and/or MWh/Wh, but its parser
+                    # normalizes every price to major currency/kWh.
+                    currency = state.attributes.get("currency", "EUR")
+                    return f"{currency}/kWh".replace("EUR/", "€/")
                 unit = state.attributes.get("unit_of_measurement")
                 if unit:
                     return str(unit).replace("EUR/", "€/")
@@ -165,6 +174,11 @@ class PricingManager:
                     return slot.price
 
         try:
+            if self._controller.price_integration_type == PRICE_INTEGRATION_NORDPOOL:
+                return calculations.normalize_nordpool_hacs_price(
+                    price_state.state,
+                    price_state.attributes,
+                )
             return float(price_state.state)
         except (ValueError, TypeError):
             return None

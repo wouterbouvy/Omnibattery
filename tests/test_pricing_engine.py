@@ -105,6 +105,28 @@ def test_price_unit_uses_configured_nordpool_currency():
     assert PricingManager(hass, ctrl)._get_price_unit() == "SEK/kWh"
 
 
+def test_hacs_nordpool_current_price_and_unit_are_normalized_from_cents():
+    state = SimpleNamespace(
+        state="12.5",
+        attributes={
+            "price_in_cents": True,
+            "unit": "kWh",
+            "currency": "EUR",
+            "unit_of_measurement": "c/kWh",
+            "raw_today": [],
+        },
+    )
+    hass = SimpleNamespace(states=SimpleNamespace(get=lambda _entity_id: state))
+    ctrl = _controller(
+        price_integration_type=PRICE_INTEGRATION_NORDPOOL,
+        price_sensor="sensor.nordpool_kwh_nl_eur",
+    )
+    manager = PricingManager(hass, ctrl)
+
+    assert manager._get_current_price() == 0.125
+    assert manager._get_price_unit() == "€/kWh"
+
+
 # ----------------------------------------------------------------------
 # is_in_dynamic_pricing_slot
 # ----------------------------------------------------------------------

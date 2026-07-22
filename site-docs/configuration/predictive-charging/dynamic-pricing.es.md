@@ -15,7 +15,7 @@ Selecciona automáticamente las **horas más baratas del día** para cubrir el d
     Al elegir **Tibber** como integración de precios, el campo *Sensor de precio* queda sin usar — el motor llama al servicio `tibber.get_prices` (precios de hoy y, tras las ~13:00, los de mañana), cachea los slots y refresca cada hora. La integración oficial de Tibber debe estar configurada en HA.
 
 !!! note "Nord Pool oficial y HACS se configuran igual"
-    Selecciona **Nordpool** y elige una entidad de precios del proveedor. Los sensores de HACS se siguen leyendo desde sus atributos `raw_today` / `raw_tomorrow`. Si la entidad pertenece a la integración oficial de Nord Pool de Home Assistant, Omnibattery resuelve automáticamente su área de mercado, llama a `nordpool.get_prices_for_date` para el día actual, convierte los valores de moneda/MWh a moneda/kWh y refresca la caché cada hora. No hace falta elegir otro proveedor ni crear un sensor de plantilla.
+    Selecciona **Nordpool** y elige una entidad de precios del proveedor. Los sensores de HACS se siguen leyendo desde sus atributos `raw_today` / `raw_tomorrow`. Si el sensor tiene `price_in_cents: true`, Omnibattery convierte automáticamente sus slots y el precio actual a moneda principal/kWh; por tanto, los umbrales se siguen introduciendo en €/kWh (o la moneda principal correspondiente), no en céntimos. Si la entidad pertenece a la integración oficial de Nord Pool de Home Assistant, Omnibattery resuelve automáticamente su área de mercado, llama a `nordpool.get_prices_for_date` para el día actual, convierte los valores de moneda/MWh a moneda/kWh y refresca la caché cada hora. No hace falta elegir otro proveedor ni crear un sensor de plantilla.
 
 ## Configuración
 

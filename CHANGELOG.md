@@ -6,6 +6,7 @@
 - **Official Home Assistant Nord Pool support for dynamic pricing**: the existing Nordpool provider now detects official-integration entities, requests today's slots through `nordpool.get_prices_for_date`, selects the entity's market area, converts the service's currency/MWh response to currency/kWh and refreshes it hourly. Existing HACS Nordpool sensors continue using `raw_today` / `raw_tomorrow` without configuration changes.
 
 ### Fixed
+- **HACS Nordpool sensors configured to display cents were treated as major currency units**: `price_in_cents: true` is now detected explicitly and both forecast slots and the live price are normalized to major currency/kWh before scheduling, threshold checks, arbitrage calculations and diagnostics. The HACS energy scale (`MWh`, `kWh` or `Wh`) is normalized at the same boundary, so Omnibattery thresholds consistently remain in currency/kWh.
 - **Time-slot naming in the configuration and options flows**: renamed the section from "Discharge time slots" to "Time slots" because each slot can independently control both charging and discharging. Updated all six translations, dashboard help text, and the English and Spanish documentation to use the same terminology.
 
 ## [1.0.1b5] - 2026-07-20

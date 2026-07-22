@@ -161,6 +161,26 @@ def test_parse_nordpool():
     assert all(isinstance(s, PriceSlot) for s in slots)
 
 
+def test_parse_hacs_nordpool_normalizes_cents_to_major_currency_per_kwh():
+    attrs = {
+        "price_in_cents": True,
+        "unit": "kWh",
+        "currency": "EUR",
+        "raw_today": [
+            {"start": _DAY, "end": _DAY + timedelta(hours=1), "value": 12.5},
+        ],
+    }
+
+    slots = calculations.parse_nordpool_prices(attrs)
+
+    assert [s.price for s in slots] == [0.125]
+
+
+def test_hacs_nordpool_normalizes_energy_scale_to_per_kwh():
+    assert calculations.normalize_nordpool_hacs_price(125.0, {"unit": "MWh"}) == 0.125
+    assert calculations.normalize_nordpool_hacs_price(0.000125, {"unit": "Wh"}) == 0.125
+
+
 def test_parse_official_nordpool_service_prices_converts_mwh_to_kwh():
     response = {
         "ES": [
