@@ -45,6 +45,59 @@ def parse_nordpool_prices(attrs: dict) -> list:
     return slots
 
 
+def parse_nordpool_service_prices(response: dict, area: str | None = None) -> list:
+    """Parse ``nordpool.get_prices_for_date`` response data.
+
+    The official Home Assistant integration returns one list per market area:
+        {"SE3": [{"start": ISO8601, "end": ISO8601, "price": 320.5}, ...]}
+    Service prices use currency/MWh, so they are divided by 1000 to match the
+    official current-price sensor and Omnibattery thresholds (currency/kWh).
+    """
+    from datetime import datetime as _dt
+
+    from homeassistant.util import dt as dt_util
+
+    if not response:
+        return []
+
+    selected_area = area if area in response else next(iter(response), None)
+    if selected_area is None:
+        return []
+    if area is not None and selected_area != area:
+        _LOGGER.warning(
+            "Dynamic pricing: Nord Pool response did not contain area %s; using %s",
+            area,
+            selected_area,
+        )
+
+    slots = []
+    for entry in response.get(selected_area) or []:
+        try:
+            start = entry.get("start")
+            end = entry.get("end")
+            price_val = entry.get("price")
+            if start is None or end is None or price_val is None:
+                continue
+            if isinstance(start, str):
+                start = _dt.fromisoformat(start)
+            if isinstance(end, str):
+                end = _dt.fromisoformat(end)
+            if hasattr(start, "tzinfo") and start.tzinfo is not None:
+                start = dt_util.as_local(start).replace(tzinfo=None)
+            if hasattr(end, "tzinfo") and end.tzinfo is not None:
+                end = dt_util.as_local(end).replace(tzinfo=None)
+            slots.append(
+                PriceSlot(start=start, end=end, price=float(price_val) / 1000.0)
+            )
+        except Exception as exc:
+            _LOGGER.debug(
+                "Dynamic pricing: failed to parse official Nord Pool entry %s: %s",
+                entry,
+                exc,
+            )
+    return slots
+
+
 def parse_pvpc_prices(attrs: dict) -> list:
     """Parse PVPC (ESIOS REE, Spain) price attributes.
 

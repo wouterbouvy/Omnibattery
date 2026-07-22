@@ -2,6 +2,9 @@
 
 ## [1.0.1b6] - 2026-07-21
 
+### Added
+- **Official Home Assistant Nord Pool support for dynamic pricing**: the existing Nordpool provider now detects official-integration entities, requests today's slots through `nordpool.get_prices_for_date`, selects the entity's market area, converts the service's currency/MWh response to currency/kWh and refreshes it hourly. Existing HACS Nordpool sensors continue using `raw_today` / `raw_tomorrow` without configuration changes.
+
 ### Fixed
 - **Time-slot naming in the configuration and options flows**: renamed the section from "Discharge time slots" to "Time slots" because each slot can independently control both charging and discharging. Updated all six translations, dashboard help text, and the English and Spanish documentation to use the same terminology.
 

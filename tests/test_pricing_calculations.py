@@ -161,6 +161,31 @@ def test_parse_nordpool():
     assert all(isinstance(s, PriceSlot) for s in slots)
 
 
+def test_parse_official_nordpool_service_prices_converts_mwh_to_kwh():
+    response = {
+        "ES": [
+            {
+                "start": "2999-01-01T00:00:00",
+                "end": "2999-01-01T00:15:00",
+                "price": 125.5,
+            }
+        ],
+        "FR": [
+            {
+                "start": "2999-01-01T00:00:00",
+                "end": "2999-01-01T00:15:00",
+                "price": 999.0,
+            }
+        ],
+    }
+
+    slots = calculations.parse_nordpool_service_prices(response, "ES")
+
+    assert len(slots) == 1
+    assert slots[0].price == 0.1255
+    assert slots[0].end - slots[0].start == timedelta(minutes=15)
+
+
 def test_parse_pvpc():
     attrs = {"price_00h": 0.11, "price_01h": 0.12, "price_02h": "0.13"}
     slots = calculations.parse_pvpc_prices(attrs)
