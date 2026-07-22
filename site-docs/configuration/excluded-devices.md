@@ -15,6 +15,8 @@ If you have a 7 kW EV charger and a 2.5 kW battery, without exclusion the batter
 | **Device sensor** | HA entity measuring the device's power (e.g. `sensor.wallbox_power`), or a state sensor for EV chargers without power telemetry. |
 | **Included in consumption** | Check if your main sensor **already** includes this load |
 | **Allow solar surplus** | If enabled, the battery will not charge to compensate this device when there is a solar surplus. Can also be toggled at runtime via a switch entity (see below). |
+| **Device has dynamic power control** | Enable for a load such as a surplus-controlled wallbox that adjusts its own demand from a grid meter. Requires **Allow solar surplus**. |
+| **Cover home while device is active** | Allow the battery to cover genuine household load while only the device's grid share remains excluded. Requires **Allow solar surplus** and a solar-production sensor. |
 | **EV charger without power telemetry** | Check if the sensor is a state sensor that reads `Charging` (or a localised equivalent) instead of a watt value. See [EV charger without power telemetry](#ev-charger-without-power-telemetry) below. |
 
 ### Included in consumption?
@@ -47,9 +49,9 @@ The switch state is persisted in the config entry and survives restarts.
 
 ---
 
-## Strict solar priority
+## Dynamic power control
 
-Telemetry devices also get a **Strict Solar Priority** switch. It is designed
+Telemetry devices also get a **Dynamic Power Control** switch. It is designed
 for flexible loads such as wallboxes that regulate themselves from the same
 grid meter as Omnibattery. Enable it together with **Solar Surplus**.
 

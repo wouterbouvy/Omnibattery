@@ -206,12 +206,16 @@
           "power_sensor": "Apparaatsensor",
           "included_in_consumption": "Verbruik is opgenomen in huisverbruikssensor",
           "allow_solar_surplus": "Zonne-overschot gebruiken toestaan (batterij niet laden)",
+          "dynamic_power_control": "Apparaat heeft dynamische vermogensregeling",
+          "cover_home_when_active": "Huis dekken terwijl het apparaat actief is",
           "ev_charger_no_telemetry": "EV-lader zonder vermogenstelemetrie"
         },
         "data_description": {
           "power_sensor": "Vermogenssensor (W) van het apparaat. Voor EV-laders zonder vermogenstelemetrie selecteert u de statussensor die 'Charging' aangeeft wanneer het voertuig laadt.",
           "included_in_consumption": "✓ AANGEVINKT = Huissensor bevat dit apparaat AL → Batterij zal het NIET voeden (uitgesloten). ✗ NIET AANGEVINKT = Huissensor ziet het niet → Batterij zal het voeden (extra)",
           "allow_solar_surplus": "Indien aangevinkt, kan het apparaat energie rechtstreeks van de zonnepanelen (overschot) verbruiken zonder dat de batterij probeert te compenseren. Aanbevolen voor apparaten met hoog verbruik zoals EV-laders.",
+          "dynamic_power_control": "Schakel dit in voor apparaten die hun vraag automatisch via de netmeter regelen, zoals een wallbox op zonne-overschot. Omnibattery laat het laden van de batterij kort wijken zodat het apparaat eerst kan reageren en gebruikt daarna alleen het werkelijk resterende overschot.",
+          "cover_home_when_active": "Vereist Zonne-overschot en een sensor voor zonneproductie. De batterij mag het eigen huisverbruik dekken terwijl dit apparaat actief is; alleen het netaandeel van het apparaat blijft uitgesloten.",
           "ev_charger_no_telemetry": "✓ AANGEVINKT = De geselecteerde sensor geeft de laadstatus aan ('Charging'). Wanneer EV-laden wordt gedetecteerd, pauzeert de batterij 5 minuten zodat het voertuig maximale stroom kan trekken; daarna mag de batterij alleen laden met zonne-overschot en ontlaadt nooit terwijl de EV laadt."
         }
       },
@@ -776,12 +780,16 @@
           "power_sensor": "Apparaatsensor",
           "included_in_consumption": "Verbruik is opgenomen in huisverbruikssensor",
           "allow_solar_surplus": "Zonne-overschot gebruiken toestaan (batterij niet laden)",
+          "dynamic_power_control": "Apparaat heeft dynamische vermogensregeling",
+          "cover_home_when_active": "Huis dekken terwijl het apparaat actief is",
           "ev_charger_no_telemetry": "EV-lader zonder vermogenstelemetrie"
         },
         "data_description": {
           "power_sensor": "Vermogenssensor (W) van het apparaat. Voor EV-laders zonder vermogenstelemetrie selecteert u de statussensor die 'Charging' aangeeft wanneer het voertuig laadt.",
           "included_in_consumption": "✓ AANGEVINKT = Huissensor bevat dit apparaat AL → Batterij zal het NIET voeden (uitgesloten). ✗ NIET AANGEVINKT = Huissensor ziet het niet → Batterij zal het voeden (extra)",
           "allow_solar_surplus": "Indien aangevinkt, kan het apparaat energie rechtstreeks van de zonnepanelen (overschot) verbruiken zonder dat de batterij probeert te compenseren. Aanbevolen voor apparaten met hoog verbruik zoals EV-laders.",
+          "dynamic_power_control": "Schakel dit in voor apparaten die hun vraag automatisch via de netmeter regelen, zoals een wallbox op zonne-overschot. Omnibattery laat het laden van de batterij kort wijken zodat het apparaat eerst kan reageren en gebruikt daarna alleen het werkelijk resterende overschot.",
+          "cover_home_when_active": "Vereist Zonne-overschot en een sensor voor zonneproductie. De batterij mag het eigen huisverbruik dekken terwijl dit apparaat actief is; alleen het netaandeel van het apparaat blijft uitgesloten.",
           "ev_charger_no_telemetry": "✓ AANGEVINKT = De geselecteerde sensor geeft de laadstatus aan ('Charging'). Wanneer EV-laden wordt gedetecteerd, pauzeert de batterij 5 minuten zodat het voertuig maximale stroom kan trekken; daarna mag de batterij alleen laden met zonne-overschot en ontlaadt nooit terwijl de EV laadt."
         }
       },
@@ -1159,8 +1167,8 @@
       "excluded_device_solar_surplus": {
         "name": "{device} – Zonne-overschot"
       },
-      "excluded_device_strict_solar_priority": {
-        "name": "{device} – Strikte Zonneprioriteit"
+      "excluded_device_dynamic_power_control": {
+        "name": "{device} – Dynamische Vermogensregeling"
       },
       "excluded_device_cover_home": {
         "name": "{device} – Huis dekken"

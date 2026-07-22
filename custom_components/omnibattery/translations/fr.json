@@ -206,12 +206,16 @@
           "power_sensor": "Capteur de l'appareil",
           "included_in_consumption": "La consommation est incluse dans le capteur de consommation domestique",
           "allow_solar_surplus": "Autoriser l'utilisation du surplus solaire (ne pas charger la batterie)",
+          "dynamic_power_control": "L'appareil a un contrôle dynamique de puissance",
+          "cover_home_when_active": "Couvrir la maison pendant que l'appareil est actif",
           "ev_charger_no_telemetry": "Chargeur VE sans télémétrie de puissance"
         },
         "data_description": {
           "power_sensor": "Capteur de puissance (W) de l'appareil. Pour les chargeurs VE sans télémétrie de puissance, sélectionnez le capteur d'état qui indique 'Charging' lorsque le véhicule charge.",
           "included_in_consumption": "✓ COCHÉ = Le capteur domestique INCLUT déjà cet appareil → La batterie ne l'alimentera PAS (exclu). ✗ DÉCOCHÉ = Le capteur domestique ne le voit pas → La batterie l'alimentera (additionnel)",
           "allow_solar_surplus": "Si coché, l'appareil pourra consommer l'énergie directement des panneaux solaires (surplus) sans que la batterie essaie de compenser. Recommandé pour les appareils à forte consommation comme les chargeurs de VE.",
+          "dynamic_power_control": "À activer pour les appareils qui ajustent automatiquement leur demande à partir du compteur réseau, comme une wallbox sur surplus. Omnibattery cède brièvement la charge de la batterie afin que l'appareil réagisse en premier, puis utilise uniquement le surplus réellement restant.",
+          "cover_home_when_active": "Nécessite Surplus Solaire et un capteur de production solaire. La batterie peut couvrir la consommation propre de la maison pendant que cet appareil est actif ; seule la part réseau de l'appareil reste exclue.",
           "ev_charger_no_telemetry": "✓ COCHÉ = Le capteur sélectionné indique l'état de charge ('Charging'). Lorsqu'une charge VE est détectée, la batterie s'arrête 5 minutes afin que le véhicule puisse tirer toute la puissance disponible ; ensuite la batterie ne peut charger qu'avec le surplus solaire et ne se déchargera jamais pendant que le VE charge."
         }
       },
@@ -776,12 +780,16 @@
           "power_sensor": "Capteur de l'appareil",
           "included_in_consumption": "La consommation est incluse dans le capteur de consommation domestique",
           "allow_solar_surplus": "Autoriser l'utilisation du surplus solaire (ne pas charger la batterie)",
+          "dynamic_power_control": "L'appareil a un contrôle dynamique de puissance",
+          "cover_home_when_active": "Couvrir la maison pendant que l'appareil est actif",
           "ev_charger_no_telemetry": "Chargeur VE sans télémétrie de puissance"
         },
         "data_description": {
           "power_sensor": "Capteur de puissance (W) de l'appareil. Pour les chargeurs VE sans télémétrie de puissance, sélectionnez le capteur d'état qui indique 'Charging' lorsque le véhicule charge.",
           "included_in_consumption": "✓ COCHÉ = Le capteur domestique INCLUT déjà cet appareil → La batterie ne l'alimentera PAS (exclu). ✗ DÉCOCHÉ = Le capteur domestique ne le voit pas → La batterie l'alimentera (additionnel)",
           "allow_solar_surplus": "Si coché, l'appareil pourra consommer l'énergie directement des panneaux solaires (surplus) sans que la batterie essaie de compenser. Recommandé pour les appareils à forte consommation comme les chargeurs de VE.",
+          "dynamic_power_control": "À activer pour les appareils qui ajustent automatiquement leur demande à partir du compteur réseau, comme une wallbox sur surplus. Omnibattery cède brièvement la charge de la batterie afin que l'appareil réagisse en premier, puis utilise uniquement le surplus réellement restant.",
+          "cover_home_when_active": "Nécessite Surplus Solaire et un capteur de production solaire. La batterie peut couvrir la consommation propre de la maison pendant que cet appareil est actif ; seule la part réseau de l'appareil reste exclue.",
           "ev_charger_no_telemetry": "✓ COCHÉ = Le capteur sélectionné indique l'état de charge ('Charging'). Lorsqu'une charge VE est détectée, la batterie s'arrête 5 minutes afin que le véhicule puisse tirer toute la puissance disponible ; ensuite la batterie ne peut charger qu'avec le surplus solaire et ne se déchargera jamais pendant que le VE charge."
         }
       },
@@ -1159,8 +1167,8 @@
       "excluded_device_solar_surplus": {
         "name": "{device} – Surplus Solaire"
       },
-      "excluded_device_strict_solar_priority": {
-        "name": "{device} – Priorité Solaire Stricte"
+      "excluded_device_dynamic_power_control": {
+        "name": "{device} – Contrôle Dynamique de Puissance"
       },
       "excluded_device_cover_home": {
         "name": "{device} – Couvrir Maison"

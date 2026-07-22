@@ -360,26 +360,26 @@ def test_exclusion_pct_default_is_full_exclusion():
 
 
 # ----------------------------------------------------------------------
-# strict solar priority: one-sensor activity detection + yield/hold state
+# dynamic power control: one-sensor activity detection + yield/hold state
 # ----------------------------------------------------------------------
 
-def _strict_device(**overrides):
+def _dynamic_device(**overrides):
     values = {
         "allow_solar_surplus": True,
-        "strict_solar_priority": True,
+        "dynamic_power_control": True,
     }
     values.update(overrides)
     return _device(**values)
 
 
-def test_strict_priority_first_load_starts_initial_yield():
+def test_dynamic_control_first_load_starts_initial_yield():
     loads = _controller(
-        [_strict_device()],
+        [_dynamic_device()],
         {"sensor.dev": _state(3600), "sensor.solar": _state(5000)},
         solar_production_sensor="sensor.solar",
     )
 
-    status = loads.refresh_strict_solar_priority()
+    status = loads.refresh_dynamic_power_control()
 
     assert status["active"] is True
     assert status["charge_blocked"] is True
@@ -389,65 +389,65 @@ def test_strict_priority_first_load_starts_initial_yield():
 
 
 @pytest.mark.parametrize("overrides", [
-    {"strict_solar_priority": False},
+    {"dynamic_power_control": False},
     {"allow_solar_surplus": False},
     {"included_in_consumption": False},
     {"enabled": False},
     {"ev_charger_no_telemetry": True},
 ])
-def test_strict_priority_requires_all_prerequisites(overrides):
-    device = _strict_device()
+def test_dynamic_control_requires_all_prerequisites(overrides):
+    device = _dynamic_device()
     device.update(overrides)
     loads = _controller([device], {"sensor.dev": _state(3600)})
 
-    assert loads.refresh_strict_solar_priority()["active"] is False
+    assert loads.refresh_dynamic_power_control()["active"] is False
 
 
-def test_strict_priority_allows_residual_after_initial_yield():
+def test_dynamic_control_allows_residual_after_initial_yield():
     loads = _controller(
-        [_strict_device()],
+        [_dynamic_device()],
         {"sensor.dev": _state(3600), "sensor.solar": _state(5000)},
         solar_production_sensor="sensor.solar",
     )
-    loads.refresh_strict_solar_priority()
-    loads._strict_yield_until["0:sensor.dev"] = dt_util.utcnow() - timedelta(seconds=1)
+    loads.refresh_dynamic_power_control()
+    loads._dynamic_yield_until["0:sensor.dev"] = dt_util.utcnow() - timedelta(seconds=1)
 
-    status = loads.refresh_strict_solar_priority()
+    status = loads.refresh_dynamic_power_control()
 
     assert status["active"] is True
     assert status["charge_blocked"] is False
     assert status["phases"] == {"sensor.dev": "monitoring_residual"}
 
 
-def test_strict_priority_solar_rise_starts_new_yield():
+def test_dynamic_control_solar_rise_starts_new_yield():
     states = {
         "sensor.dev": _state(3600),
         "sensor.solar": _state(5000),
     }
     loads = _controller(
-        [_strict_device()],
+        [_dynamic_device()],
         states,
         solar_production_sensor="sensor.solar",
     )
-    loads.refresh_strict_solar_priority()
-    loads._strict_yield_until["0:sensor.dev"] = dt_util.utcnow() - timedelta(seconds=1)
-    assert loads.refresh_strict_solar_priority()["charge_blocked"] is False
+    loads.refresh_dynamic_power_control()
+    loads._dynamic_yield_until["0:sensor.dev"] = dt_util.utcnow() - timedelta(seconds=1)
+    assert loads.refresh_dynamic_power_control()["charge_blocked"] is False
 
     states["sensor.solar"] = _state(5250)
-    status = loads.refresh_strict_solar_priority()
+    status = loads.refresh_dynamic_power_control()
 
     assert status["charge_blocked"] is True
     assert status["phases"] == {"sensor.dev": "yielding"}
     assert 0 < status["yield_remaining_s"] <= 20
 
 
-def test_strict_priority_zero_power_is_held_for_restart():
+def test_dynamic_control_zero_power_is_held_for_restart():
     states = {"sensor.dev": _state(3600)}
-    loads = _controller([_strict_device()], states)
-    loads.refresh_strict_solar_priority()
+    loads = _controller([_dynamic_device()], states)
+    loads.refresh_dynamic_power_control()
 
     states["sensor.dev"] = _state(0)
-    status = loads.refresh_strict_solar_priority()
+    status = loads.refresh_dynamic_power_control()
 
     assert status["active"] is True
     assert status["charge_blocked"] is True
@@ -455,33 +455,33 @@ def test_strict_priority_zero_power_is_held_for_restart():
     assert 0 < status["hold_remaining_s"] <= 300
 
 
-def test_strict_priority_restart_hold_expires_to_normal_operation():
+def test_dynamic_control_restart_hold_expires_to_normal_operation():
     states = {"sensor.dev": _state(3600)}
-    loads = _controller([_strict_device()], states)
-    loads.refresh_strict_solar_priority()
+    loads = _controller([_dynamic_device()], states)
+    loads.refresh_dynamic_power_control()
     states["sensor.dev"] = _state(0)
-    loads._strict_hold_until["0:sensor.dev"] = dt_util.utcnow() - timedelta(seconds=1)
+    loads._dynamic_hold_until["0:sensor.dev"] = dt_util.utcnow() - timedelta(seconds=1)
 
-    status = loads.refresh_strict_solar_priority()
+    status = loads.refresh_dynamic_power_control()
 
     assert status["active"] is False
     assert status["charge_blocked"] is False
 
 
-def test_strict_priority_without_solar_uses_periodic_probe():
-    loads = _controller([_strict_device()], {"sensor.dev": _state(3600)})
-    loads.refresh_strict_solar_priority()
+def test_dynamic_control_without_solar_uses_periodic_probe():
+    loads = _controller([_dynamic_device()], {"sensor.dev": _state(3600)})
+    loads.refresh_dynamic_power_control()
     key = "0:sensor.dev"
-    loads._strict_yield_until[key] = dt_util.utcnow() - timedelta(seconds=1)
-    loads._strict_next_probe[key] = dt_util.utcnow() - timedelta(seconds=1)
+    loads._dynamic_yield_until[key] = dt_util.utcnow() - timedelta(seconds=1)
+    loads._dynamic_next_probe[key] = dt_util.utcnow() - timedelta(seconds=1)
 
-    status = loads.refresh_strict_solar_priority()
+    status = loads.refresh_dynamic_power_control()
 
     assert status["charge_blocked"] is True
     assert status["phases"] == {"sensor.dev": "yielding"}
 
 
-def test_controller_registers_strict_priority_charge_block():
+def test_controller_registers_dynamic_control_charge_block():
     status = {
         "active": True,
         "charge_blocked": True,
@@ -493,22 +493,22 @@ def test_controller_registers_strict_priority_charge_block():
     }
     calls = []
     controller = SimpleNamespace(
-        _external_loads=SimpleNamespace(refresh_strict_solar_priority=lambda: status),
+        _external_loads=SimpleNamespace(refresh_dynamic_power_control=lambda: status),
         set_charge_block=lambda *args, **kwargs: calls.append(("set", args, kwargs)),
         remove_charge_block=lambda *args, **kwargs: calls.append(("remove", args, kwargs)),
     )
 
-    ChargeDischargeController._refresh_strict_solar_priority_block(controller)
+    ChargeDischargeController._refresh_dynamic_power_control_block(controller)
 
     assert calls[0][0] == "set"
     assert calls[0][1][:2] == (
-        "excluded_device_strict_priority",
-        "strict_solar_priority",
+        "excluded_device_dynamic_power_control",
+        "dynamic_power_control",
     )
     assert calls[0][1][2]["devices"] == "sensor.dev"
 
 
-def test_controller_removes_strict_priority_charge_block_when_idle():
+def test_controller_removes_dynamic_control_charge_block_when_idle():
     status = {
         "active": False,
         "charge_blocked": False,
@@ -520,14 +520,14 @@ def test_controller_removes_strict_priority_charge_block_when_idle():
     }
     calls = []
     controller = SimpleNamespace(
-        _external_loads=SimpleNamespace(refresh_strict_solar_priority=lambda: status),
+        _external_loads=SimpleNamespace(refresh_dynamic_power_control=lambda: status),
         set_charge_block=lambda *args, **kwargs: calls.append(("set", args, kwargs)),
         remove_charge_block=lambda *args, **kwargs: calls.append(("remove", args, kwargs)),
     )
 
-    ChargeDischargeController._refresh_strict_solar_priority_block(controller)
+    ChargeDischargeController._refresh_dynamic_power_control_block(controller)
 
-    assert calls == [("remove", ("excluded_device_strict_priority",), {})]
+    assert calls == [("remove", ("excluded_device_dynamic_power_control",), {})]
 
 
 # ----------------------------------------------------------------------

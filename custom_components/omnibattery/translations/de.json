@@ -206,12 +206,16 @@
           "power_sensor": "Gerätesensor",
           "included_in_consumption": "Verbrauch ist im Hausverbrauchssensor enthalten",
           "allow_solar_surplus": "Solarüberschuss nutzen erlauben (Batterie nicht laden)",
+          "dynamic_power_control": "Gerät hat dynamische Leistungsregelung",
+          "cover_home_when_active": "Hausverbrauch decken, während das Gerät aktiv ist",
           "ev_charger_no_telemetry": "EV-Ladestation ohne Leistungstelemetrie"
         },
         "data_description": {
           "power_sensor": "Leistungssensor (W) des Geräts. Für EV-Ladestationen ohne Leistungstelemetrie den Statussensor auswählen, der 'Charging' anzeigt, wenn das Fahrzeug lädt.",
           "included_in_consumption": "✓ AKTIVIERT = Haussensor enthält dieses Gerät BEREITS → Batterie wird es NICHT versorgen (ausgeschlossen). ✗ DEAKTIVIERT = Haussensor sieht es nicht → Batterie wird es versorgen (zusätzlich)",
           "allow_solar_surplus": "Wenn aktiviert, kann das Gerät Energie direkt von den Solarmodulen (Überschuss) verbrauchen, ohne dass die Batterie versucht zu kompensieren. Empfohlen für Geräte mit hohem Verbrauch wie EV-Ladestationen.",
+          "dynamic_power_control": "Für Geräte aktivieren, die ihren Bedarf über den Netzzähler automatisch regeln, etwa eine Überschuss-Wallbox. Omnibattery gibt die Batterieladung kurz frei, damit das Gerät zuerst reagieren kann, und nutzt anschließend nur den tatsächlich verbleibenden Überschuss.",
+          "cover_home_when_active": "Erfordert Solarüberschuss und einen Solarleistungssensor. Die Batterie darf den eigenen Hausverbrauch decken, während dieses Gerät aktiv ist; nur der Netzanteil des Geräts bleibt ausgeschlossen.",
           "ev_charger_no_telemetry": "✓ AKTIVIERT = Der ausgewählte Sensor meldet den Ladezustand ('Charging'). Wenn ein EV-Ladevorgang erkannt wird, hält die Batterie 5 Minuten an, damit das Fahrzeug volle Leistung beziehen kann; danach darf die Batterie nur mit Solarüberschuss laden und entlädt sich nie, solange das EV lädt."
         }
       },
@@ -776,12 +780,16 @@
           "power_sensor": "Gerätesensor",
           "included_in_consumption": "Verbrauch ist im Hausverbrauchssensor enthalten",
           "allow_solar_surplus": "Solarüberschuss nutzen erlauben (Batterie nicht laden)",
+          "dynamic_power_control": "Gerät hat dynamische Leistungsregelung",
+          "cover_home_when_active": "Hausverbrauch decken, während das Gerät aktiv ist",
           "ev_charger_no_telemetry": "EV-Ladestation ohne Leistungstelemetrie"
         },
         "data_description": {
           "power_sensor": "Leistungssensor (W) des Geräts. Für EV-Ladestationen ohne Leistungstelemetrie den Statussensor auswählen, der 'Charging' anzeigt, wenn das Fahrzeug lädt.",
           "included_in_consumption": "✓ AKTIVIERT = Haussensor enthält dieses Gerät BEREITS → Batterie wird es NICHT versorgen (ausgeschlossen). ✗ DEAKTIVIERT = Haussensor sieht es nicht → Batterie wird es versorgen (zusätzlich)",
           "allow_solar_surplus": "Wenn aktiviert, kann das Gerät Energie direkt von den Solarmodulen (Überschuss) verbrauchen, ohne dass die Batterie versucht zu kompensieren. Empfohlen für Geräte mit hohem Verbrauch wie EV-Ladestationen.",
+          "dynamic_power_control": "Für Geräte aktivieren, die ihren Bedarf über den Netzzähler automatisch regeln, etwa eine Überschuss-Wallbox. Omnibattery gibt die Batterieladung kurz frei, damit das Gerät zuerst reagieren kann, und nutzt anschließend nur den tatsächlich verbleibenden Überschuss.",
+          "cover_home_when_active": "Erfordert Solarüberschuss und einen Solarleistungssensor. Die Batterie darf den eigenen Hausverbrauch decken, während dieses Gerät aktiv ist; nur der Netzanteil des Geräts bleibt ausgeschlossen.",
           "ev_charger_no_telemetry": "✓ AKTIVIERT = Der ausgewählte Sensor meldet den Ladezustand ('Charging'). Wenn ein EV-Ladevorgang erkannt wird, hält die Batterie 5 Minuten an, damit das Fahrzeug volle Leistung beziehen kann; danach darf die Batterie nur mit Solarüberschuss laden und entlädt sich nie, solange das EV lädt."
         }
       },
@@ -1159,8 +1167,8 @@
       "excluded_device_solar_surplus": {
         "name": "{device} – Solarüberschuss"
       },
-      "excluded_device_strict_solar_priority": {
-        "name": "{device} – Strikte Solarpriorität"
+      "excluded_device_dynamic_power_control": {
+        "name": "{device} – Dynamische Leistungsregelung"
       },
       "excluded_device_cover_home": {
         "name": "{device} – Haus decken"

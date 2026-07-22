@@ -1158,6 +1158,8 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                 "power_sensor": user_input["power_sensor"],
                 "included_in_consumption": user_input.get("included_in_consumption", True),
                 "allow_solar_surplus": user_input.get("allow_solar_surplus", False),
+                "dynamic_power_control": user_input.get("dynamic_power_control", False),
+                "cover_home_when_active": user_input.get("cover_home_when_active", False),
                 "ev_charger_no_telemetry": user_input.get("ev_charger_no_telemetry", False),
             }
             self.excluded_devices.append(excluded_device)
@@ -1179,6 +1181,8 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                         EntitySelector(EntitySelectorConfig(domain="sensor")),
                     vol.Required("included_in_consumption", default=True): bool,
                     vol.Optional("allow_solar_surplus", default=False): bool,
+                    vol.Optional("dynamic_power_control", default=False): bool,
+                    vol.Optional("cover_home_when_active", default=False): bool,
                     vol.Optional("ev_charger_no_telemetry", default=False): bool,
                 }
             ),
@@ -2730,6 +2734,8 @@ class OptionsFlowHandler(OptionsFlow):
                 "power_sensor": user_input["power_sensor"],
                 "included_in_consumption": user_input.get("included_in_consumption", True),
                 "allow_solar_surplus": user_input.get("allow_solar_surplus", False),
+                "dynamic_power_control": user_input.get("dynamic_power_control", False),
+                "cover_home_when_active": user_input.get("cover_home_when_active", False),
                 "ev_charger_no_telemetry": user_input.get("ev_charger_no_telemetry", False),
             }
             self.excluded_devices.append(excluded_device)
@@ -2750,11 +2756,15 @@ class OptionsFlowHandler(OptionsFlow):
             default_sensor = current_device.get("power_sensor", "")
             default_included = current_device.get("included_in_consumption", True)
             default_allow_solar_surplus = current_device.get("allow_solar_surplus", False)
+            default_dynamic_power_control = current_device.get("dynamic_power_control", False)
+            default_cover_home = current_device.get("cover_home_when_active", False)
             default_ev_no_telemetry = current_device.get("ev_charger_no_telemetry", False)
         else:
             default_sensor = ""
             default_included = True
             default_allow_solar_surplus = False
+            default_dynamic_power_control = False
+            default_cover_home = False
             default_ev_no_telemetry = False
 
         device_num += 1
@@ -2766,6 +2776,8 @@ class OptionsFlowHandler(OptionsFlow):
                         EntitySelector(EntitySelectorConfig(domain="sensor")),
                     vol.Required("included_in_consumption", default=default_included): bool,
                     vol.Optional("allow_solar_surplus", default=default_allow_solar_surplus): bool,
+                    vol.Optional("dynamic_power_control", default=default_dynamic_power_control): bool,
+                    vol.Optional("cover_home_when_active", default=default_cover_home): bool,
                     vol.Optional("ev_charger_no_telemetry", default=default_ev_no_telemetry): bool,
                 }
             ),

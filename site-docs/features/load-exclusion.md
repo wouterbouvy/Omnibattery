@@ -47,12 +47,12 @@ automation:
 
 ![Excluded device power sensor in HA](../assets/screenshots/features/load-exclusion-entities.png){ width="700"  style="display: block; margin: 0 auto;"}
 
-### Strict Solar Priority switch
+### Dynamic Power Control switch
 
 For a wallbox or another flexible load with its own surplus controller, standard
 Solar Surplus can still leave two controllers settled at an undesirable split:
-the battery removes export before the wallbox has a chance to ramp up. **Strict
-Solar Priority** adds a small state machine around the normal exclusion logic.
+the battery removes export before the wallbox has a chance to ramp up. **Dynamic
+Power Control** adds a small state machine around the normal exclusion logic.
 
 On first measured demand it blocks battery charging for 30 seconds. Charging may
 then resume only on the export the device left behind. A solar rise triggers a

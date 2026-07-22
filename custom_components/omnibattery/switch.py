@@ -154,7 +154,7 @@ async def async_setup_entry(
         entities.append(ExcludedDeviceEnabledSwitch(hass, entry, index))
         entities.append(ExcludedDeviceSolarSurplusSwitch(hass, entry, index))
         if not excluded_devices[index].get("ev_charger_no_telemetry", False):
-            entities.append(ExcludedDeviceStrictSolarPrioritySwitch(hass, entry, index))
+            entities.append(ExcludedDeviceDynamicPowerControlSwitch(hass, entry, index))
         entities.append(ExcludedDeviceCoverHomeSwitch(hass, entry, index))
 
     async_add_entities(entities)
@@ -1129,11 +1129,11 @@ class ExcludedDeviceSolarSurplusSwitch(SwitchEntity):
         }
 
 
-class ExcludedDeviceStrictSolarPrioritySwitch(SwitchEntity):
+class ExcludedDeviceDynamicPowerControlSwitch(SwitchEntity):
     """Give a telemetry excluded device first claim on changing solar surplus."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, index: int) -> None:
-        """Initialize the strict solar-priority switch."""
+        """Initialize the dynamic power-control switch."""
         self.hass = hass
         self.entry = entry
         self._device_index = index
@@ -1143,19 +1143,19 @@ class ExcludedDeviceStrictSolarPrioritySwitch(SwitchEntity):
         friendly = sensor_id.replace("sensor.", "").replace("_", " ").title()
 
         self._attr_has_entity_name = True
-        self._attr_translation_key = "excluded_device_strict_solar_priority"
+        self._attr_translation_key = "excluded_device_dynamic_power_control"
         self._attr_translation_placeholders = {"device": friendly}
-        self._attr_unique_id = f"{SYSTEM_UNIQUE_ID_PREFIX}strict_solar_priority_{index}"
-        self.entity_id = system_entity_id("switch", f"strict_solar_priority_{index}")
+        self._attr_unique_id = f"{SYSTEM_UNIQUE_ID_PREFIX}dynamic_power_control_{index}"
+        self.entity_id = system_entity_id("switch", f"dynamic_power_control_{index}")
         self._attr_icon = "mdi:ev-station"
         self._attr_should_poll = False
 
     @property
     def is_on(self) -> bool:
-        """Return True if strict solar priority is enabled for this device."""
+        """Return True if dynamic power control is enabled for this device."""
         devices = self.entry.data.get("excluded_devices", [])
         if self._device_index < len(devices):
-            return devices[self._device_index].get("strict_solar_priority", False)
+            return devices[self._device_index].get("dynamic_power_control", False)
         return False
 
     @property
@@ -1171,16 +1171,16 @@ class ExcludedDeviceStrictSolarPrioritySwitch(SwitchEntity):
             "included_in_consumption": device.get("included_in_consumption", True),
         }
 
-    async def _update_strict_priority(self, enabled: bool) -> None:
-        """Persist strict_solar_priority in config_entry.data."""
+    async def _update_dynamic_power_control(self, enabled: bool) -> None:
+        """Persist dynamic_power_control in config_entry.data."""
         new_data = dict(self.entry.data)
         devices = [dict(d) for d in new_data.get("excluded_devices", [])]
         if self._device_index < len(devices):
-            devices[self._device_index]["strict_solar_priority"] = enabled
+            devices[self._device_index]["dynamic_power_control"] = enabled
             new_data["excluded_devices"] = devices
             self.hass.config_entries.async_update_entry(self.entry, data=new_data)
             _LOGGER.info(
-                "Strict solar priority for device %d (%s) %s",
+                "Dynamic power control for device %d (%s) %s",
                 self._device_index + 1,
                 devices[self._device_index].get("power_sensor", ""),
                 "enabled" if enabled else "disabled",
@@ -1188,12 +1188,12 @@ class ExcludedDeviceStrictSolarPrioritySwitch(SwitchEntity):
         self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs) -> None:
-        """Enable strict solar priority for this device."""
-        await self._update_strict_priority(True)
+        """Enable dynamic power control for this device."""
+        await self._update_dynamic_power_control(True)
 
     async def async_turn_off(self, **kwargs) -> None:
-        """Disable strict solar priority for this device."""
-        await self._update_strict_priority(False)
+        """Disable dynamic power control for this device."""
+        await self._update_dynamic_power_control(False)
 
     @property
     def device_info(self):

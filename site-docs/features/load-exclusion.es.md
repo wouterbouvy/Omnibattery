@@ -47,12 +47,12 @@ automation:
 
 ![Sensor de potencia de dispositivo excluido en HA](../assets/screenshots/features/load-exclusion-entities.png){ width="700"  style="display: block; margin: 0 auto;"}
 
-### Switch de prioridad solar estricta
+### Switch de control dinámico de potencia
 
 Con una wallbox u otra carga flexible que tenga su propio regulador de excedente,
 el modo Excedente Solar estándar todavía puede dejar ambos controladores en un
 reparto no deseado: la batería elimina la exportación antes de que la wallbox
-pueda aumentar potencia. **Prioridad Solar Estricta** añade una pequeña máquina
+pueda aumentar potencia. **Control Dinámico de Potencia** añade una pequeña máquina
 de estados alrededor de la exclusión normal.
 
 Al detectar consumo por primera vez bloquea la carga de batería durante 30

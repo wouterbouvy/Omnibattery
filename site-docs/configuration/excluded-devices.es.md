@@ -15,6 +15,8 @@ Si tienes un cargador de vehículo eléctrico de 7 kW y una batería de 2,5 kW, 
 | **Sensor del dispositivo** | Entidad HA que mide la potencia del dispositivo (p. ej. `sensor.wallbox_power`), o un sensor de estado para cargadores VE sin telemetría de potencia. |
 | **Incluido en el consumo** | Marca si tu sensor principal **ya** incluye esta carga |
 | **Permitir excedente solar** | Si está activo, la batería no cargará para compensar este dispositivo cuando hay excedente solar. También puede activarse en tiempo real desde una entidad switch (ver más abajo). |
+| **El dispositivo tiene control dinámico de potencia** | Actívalo para una carga, como una wallbox por excedente, que ajuste su propia demanda mediante un contador de red. Requiere **Permitir excedente solar**. |
+| **Cubrir el hogar mientras el dispositivo está activo** | Permite que la batería cubra el consumo real del hogar mientras solo permanece excluida la parte de red del dispositivo. Requiere **Permitir excedente solar** y un sensor de producción solar. |
 | **Cargador VE sin telemetría de potencia** | Marca si el sensor es un sensor de estado que indica `Charging`/`Cargando` en lugar de un valor en vatios. Ver [Cargador VE sin telemetría](#cargador-ve-sin-telemetría-de-potencia) más abajo. |
 
 ### ¿Incluido en el consumo?
@@ -47,10 +49,10 @@ El estado del switch se persiste en la entrada de configuración y sobrevive rei
 
 ---
 
-## Prioridad solar estricta
+## Control dinámico de potencia
 
-Los dispositivos con telemetría también disponen de un switch **Prioridad Solar
-Estricta**. Está pensado para cargas flexibles, como wallboxes, que se regulan
+Los dispositivos con telemetría también disponen de un switch **Control Dinámico
+de Potencia**. Está pensado para cargas flexibles, como wallboxes, que se regulan
 mediante el mismo contador de red que Omnibattery. Debe activarse junto con
 **Excedente Solar**.
 
