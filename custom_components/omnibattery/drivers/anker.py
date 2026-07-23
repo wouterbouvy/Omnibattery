@@ -327,15 +327,11 @@ class AnkerModbusDriver(BatteryDriver):
         # Register 10071 is write-only. A new connection may mean the battery
         # restarted and lost the previous command, so do not expose its stale
         # in-memory echo as observable device state.
+        # Do not force Third-Party Control here: mode is ensured only when a
+        # setpoint is written via apply_setpoint(), so Manual Mode idle can
+        # leave Solix app modes alone without reconnect fighting them.
         self._last_net_power_w = None
         self._client.unit_id = self._slave_id
-        mode_ok = await self._ensure_third_party_mode()
-        if not mode_ok:
-            _LOGGER.warning(
-                "Anker %s:%s connected but failed to set third_party_control mode",
-                self._host,
-                self._port,
-            )
         return True
 
     async def close(self) -> None:

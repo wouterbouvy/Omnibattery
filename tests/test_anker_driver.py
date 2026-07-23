@@ -61,8 +61,9 @@ def test_model_label():
 
 def test_power_caps_are_read_only_sensors():
     """Hardware max charge/discharge (10036/10038) are sensors only — not
-    writable numbers and not setup sliders. Soft-max entities must not claim
-    the same unique_ids."""
+    writable driver number definitions. Soft-max number entities are created
+    separately by the coordinator (needs_software_max_*) under the hardware cap.
+    """
     from custom_components.omnibattery.drivers import anker as anker_mod
 
     sensor_keys = {d["key"] for d in anker_mod.SENSOR_DEFINITIONS}
@@ -109,21 +110,15 @@ def test_encode_int32_roundtrip():
 # connect / mode
 # ----------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_connect_sets_third_party_mode_when_needed():
+async def test_connect_does_not_force_third_party_mode():
+    """Connect must not write operating mode — Manual Mode idle can leave Solix
+    modes alone; Third-Party is ensured only on apply_setpoint."""
     client = _fake_client()
     client.async_read_holding_register = AsyncMock(return_value=0)
     drv = _driver(client=client)
     assert await drv.connect() is True
-    client.async_write_register.assert_awaited_with(10064, 3)
-
-
-@pytest.mark.asyncio
-async def test_connect_skips_mode_write_when_already_third_party():
-    client = _fake_client()
-    client.async_read_holding_register = AsyncMock(return_value=3)
-    drv = _driver(client=client)
-    assert await drv.connect() is True
     client.async_write_register.assert_not_awaited()
+    client.async_read_holding_register.assert_not_awaited()
 
 
 # ----------------------------------------------------------------------
@@ -251,6 +246,17 @@ async def test_read_telemetry_uses_fc03_for_operating_mode_and_soc_limits():
 # ----------------------------------------------------------------------
 # apply_setpoint
 # ----------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_apply_setpoint_ensures_third_party_mode_when_needed():
+    client = _fake_client()
+    client.async_read_holding_register = AsyncMock(return_value=0)
+    drv = _driver(client=client)
+    result = await drv.apply_setpoint(500)
+    assert result.ok is True
+    client.async_write_register.assert_awaited_with(10064, 3)
+    client.async_write_registers_int32.assert_awaited_with(10071, -500)
+
+
 @pytest.mark.asyncio
 async def test_apply_setpoint_charge_writes_negative_wire_value():
     client = _fake_client()
